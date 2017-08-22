@@ -2,6 +2,8 @@
 Loops through process list every %Delay%
 also checks list on window created
 
+See ProcessChanger.ini to setup
+
 v0.01
 Initial Release
 */
