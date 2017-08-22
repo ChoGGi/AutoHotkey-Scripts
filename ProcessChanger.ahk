@@ -4,6 +4,9 @@ also checks list on window created
 
 See ProcessChanger.ini to setup
 
+Requires:
+https://github.com/ChoGGi/AutoHotkey-Scripts/blob/master/Lib/Processes.ahk
+
 v0.01
 Initial Release
 */
@@ -146,6 +149,12 @@ ShellMessage(wParam,lParam)
   ;get PID/exe name
   WinGet aWinPID,PID,ahk_id %lParam%
   WinGet aWinName,ProcessName,ahk_id %lParam%
+
+  ;REMOVE FOR RELEASE
+  ;processes to skip
+  If (aWinName = "scite.exe")
+    Return
+  ;REMOVE FOR RELEASE
 
   ;set process affinities (to last 4 cores, well technically 2 with HT)
   Loop Parse,AffinityList,`,
