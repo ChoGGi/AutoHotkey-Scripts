@@ -1,5 +1,5 @@
 /*
-A simple GUI for extracting MKVs
+A simple GUI for extracting tracks from MKVs
 Using MKVToolNix (mkvextract/mkvmerge)
 https://mkvtoolnix.download
 
