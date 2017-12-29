@@ -1,3 +1,27 @@
+;#Include <JXON>
+/*
+For key, value in Jxon_Load(Trackstmp).tracks
+  {
+  TrackListing .= "Track: " value.id ": "
+  TrackListing .= "Type: " value.type ": "
+  If (value.properties.track_name != "")
+    TrackListing .= "Name: " value.properties.track_name ": "
+  }
+
+MsgBox, % Find(Jxon_Load(Trackstmp), "V_MPEG4/ISO/AVC")
+
+Find(Object, String)
+{
+  for k, v in Object
+  {
+    if (v = String) ; Case insensitive
+      return k
+    else if IsObject(v) && (Out := Find(v, String))
+      return k " -> " Out
+  }
+}
+*/
+
 ;https://github.com/cocobelgica/AutoHotkey-JSON
 Jxon_Load(ByRef src, args*)
 {

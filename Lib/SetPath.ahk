@@ -1,32 +1,45 @@
-Global Prog_Ini,Prog_Dir
-SplitPath A_ScriptFullPath,,,,Prog_Name
-Prog_Ini := A_ScriptDir "\" Prog_Name ".ini"
-IniRead Prog_Dir,%Prog_Ini%,Settings,Prog_Dir
-If (!FileExist(Prog_Dir Prog_Exe))
+Global sProg_Ini,sProg_Dir
+
+SplitPath A_ScriptFullPath,,,,sProg_Name
+sProg_Ini := A_ScriptDir "\" sProg_Name ".ini"
+IniRead sProg_Dir,%sProg_Ini%,Settings,Prog_Dir
+
+If (!FileExist(sProg_Dir sProg_Exe))
   {
-  If (FileExist(A_ScriptDir Prog_Exe))
-    SetInstallPath(A_ScriptDir)
-  Else If (FileExist(A_WorkingDir Prog_Exe))
-    SetInstallPath(A_WorkingDir)
-  Else If (FileExist(ProgramFiles "\" Prog_Name Prog_Exe))
-    SetInstallPath(ProgramFiles "\" Prog_Name)
+  If (FileExist(A_ScriptDir sProg_Exe))
+    {
+    sProg_Ini := A_ScriptDir "\" sProg_Name ".ini"
+    fSetInstallPath(A_ScriptDir)
+    }
+  Else If (FileExist(A_WorkingDir sProg_Exe))
+    {
+    sProg_Ini := A_WorkingDir "\" sProg_Name ".ini"
+    fSetInstallPath(A_WorkingDir)
+    }
+  Else If (FileExist(A_ProgramFiles "\" sProg_Name sProg_Exe))
+    {
+    sProg_Ini := A_ProgramFiles "\" sProg_Name "\" sProg_Name ".ini"
+    fSetInstallPath(A_ProgramFiles "\" sProg_Name)
+    }
   Else
     {
     Loop
       {
-      FileSelectFolder Prog_Dir,*%A_ScriptDir%,3,Please select %Prog_Name% directory (Eg: %ProgramFiles%\%Prog_Name%)
-      If (ErrorLevel = 1)
+      FileSelectFolder sProg_Dir,*%A_ScriptDir%,3,Please select %sProg_Name% directory`n(Eg: %A_ProgramFiles%\%sProg_Name%)
+      If (ErrorLevel)
         ExitApp
-      If (FileExist(Prog_Dir Prog_Exe))
+      If (FileExist(sProg_Dir sProg_Exe))
         {
-        SetInstallPath(Prog_Dir)
+        sProg_Ini := sProg_Dir "\" sProg_Name ".ini"
+        fSetInstallPath(sProg_Dir)
         Break
         }
       }
     }
   }
-SetInstallPath(PATH)
+
+fSetInstallPath(sPath)
   {
-  IniWrite %PATH%,%Prog_Ini%,Settings,Prog_Dir
-  Prog_Dir := PATH
+  IniWrite %sPath%,%sProg_Ini%,Settings,Prog_Dir
+  sProg_Dir := sPath
   }

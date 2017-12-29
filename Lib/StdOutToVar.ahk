@@ -1,6 +1,17 @@
-;https://github.com/cocobelgica/AutoHotkey-Util/blob/master/StdOutToVar.ahk
-StdOutToVar(cmd) {
+/*
+text := StdOutToVar(MKV_Dir "\mkvinfo.exe -s " """" InFile """")
+=
+D:\Media\MKVtoolnix\mkvinfo.exe -s "Path to some file"
 
+https://github.com/cocobelgica/AutoHotkey-Util/blob/master/StdOutToVar.ahk
+
+sBreakOnString = stop and kill *sCmd* if we encounter this string
+sBreakOnStringAdd = only stop if we also have this string as well
+iBreakDelay = add a delay in ms while checking
+*/
+
+StdOutToVar(sCmd,sBreakOnString := 0,sBreakOnStringAdd := 0,iBreakDelay := 0)
+  {
 	DllCall("CreatePipe", "PtrP", hReadPipe, "PtrP", hWritePipe, "Ptr", 0, "UInt", 0)
 	DllCall("SetHandleInformation", "Ptr", hWritePipe, "UInt", 1, "UInt", 1)
 
@@ -15,7 +26,7 @@ StdOutToVar(cmd) {
 	(Join Q C
 		"CreateProcess",             ; http://goo.gl/9y0gw
 		"Ptr",  0,                   ; lpApplicationName
-		"Ptr",  &cmd,                ; lpCommandLine
+		"Ptr",  &sCmd,                ; lpCommandLine
 		"Ptr",  0,                   ; lpProcessAttributes
 		"Ptr",  0,                   ; lpThreadAttributes
 		"UInt", true,                ; bInheritHandles
@@ -32,11 +43,36 @@ StdOutToVar(cmd) {
 
 	DllCall("CloseHandle", "Ptr", hWritePipe)
 	VarSetCapacity(buffer, 4096, 0)
-	while DllCall("ReadFile", "Ptr", hReadPipe, "Ptr", &buffer, "UInt", 4096, "UIntP", dwRead, "Ptr", 0)
-		sOutput .= StrGet(&buffer, dwRead, "CP0")
+  If (sBreakOnString)
+    {
+    ;exit during process execution
+    While DllCall("ReadFile", "Ptr", hReadPipe, "Ptr", &buffer, "UInt", 4096, "UIntP", dwRead, "Ptr", 0)
+      {
+      sOutput .= StrGet(&buffer, dwRead, "CP0")
+
+      If !(sBreakOnStringAdd) && (If InStr(sOutput,sBreakOnString))
+        {
+        ;got what we want so kill off process
+        Process Close,% NumGet(PROCESS_INFORMATION,2 * A_PtrSize,"UInt")
+        Break
+        }
+      Else If InStr(sOutput,sBreakOnString) && InStr(sOutput,sBreakOnStringAdd)
+        {
+        Process Close,% NumGet(PROCESS_INFORMATION,2 * A_PtrSize,"UInt")
+        Break
+        }
+      ;wait a bit
+      Sleep %iDelay%
+      }
+    }
+  Else
+    {
+    While DllCall("ReadFile", "Ptr", hReadPipe, "Ptr", &buffer, "UInt", 4096, "UIntP", dwRead, "Ptr", 0)
+      sOutput .= StrGet(&buffer, dwRead, "CP0")
+    }
 
 	DllCall("CloseHandle", "Ptr", NumGet(PROCESS_INFORMATION, 0))         ; hProcess
 	DllCall("CloseHandle", "Ptr", NumGet(PROCESS_INFORMATION, A_PtrSize)) ; hThread
 	DllCall("CloseHandle", "Ptr", hReadPipe)
 	Return sOutput
-}
+  }

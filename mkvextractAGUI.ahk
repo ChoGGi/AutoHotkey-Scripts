@@ -3,11 +3,11 @@ A simple GUI for extracting tracks from MKVs
 Using MKVToolNix (mkvextract/mkvmerge)
 https://mkvtoolnix.download
 
-mkvextractAGUI example.mkv
+mkvextractAGUI Example.mkv
 
 Requires:
-https://github.com/cocobelgica/AutoHotkey-JSON/blob/master/Jxon.ahk (v2.1.1 (updated 01/30/2016))
-https://github.com/cocobelgica/AutoHotkey-Util/blob/master/StdOutToVar.ahk
+https://github.com/cocobelgica/AutoHotkey-JSON/blob/master/Jxon.ahk (1560aaa on 6 Apr 2016)
+https://github.com/cocobelgica/AutoHotkey-Util/blob/master/StdOutToVar.ahk (3541fbe on 25 Aug 2014)
 SetPath (see lib dir)
 
 v0.01
@@ -18,48 +18,51 @@ Initial Release
 #SingleInstance Force
 ;#SingleInstance Off
 #NoTrayIcon
-ListLines Off
 SetBatchLines -1
+ListLines Off
+AutoTrim Off
 SetWinDelay -1
 
 #Include <JXON>
 #Include <StdOutToVar>
 
-Global Jxon_Load,StdOutToVar,Prog_Ini,Prog_Dir,Prog_Exe,Prog_Name,TitleName
+Global Jxon_Load,StdOutToVar,sProg_Ini,sProg_Dir,sProg_Exe,sProg_Name,TitleName
       ,ExtractTracks,OverWriteFiles,OutputDir,OutExt,OutputName,BatchFile
       ,TrackListing,ExtractToMKA,ExitAfter,Merge_Exe
 
-Prog_Exe := "\mkvextract.exe"
+sProg_Exe := "\mkvextract.exe"
 Merge_Exe := "\mkvmerge.exe"
 #Include <SetPath>
 
-If 1
-  InFile = %1%
+If (A_Args.Length())
+  sInFile := A_Args[1]
 Else
   {
-  FileSelectFile InFile,,,,Matroska Files (*.mk*)
+  FileSelectFile sInFile,,,,Matroska Files (*.mk*)
   If ErrorLevel
     ExitApp
   }
 
-IniRead ExtractToMKA,%Prog_Ini%,Settings,ExtractToMKA,0
-IniRead OverWriteFiles,%Prog_Ini%,Settings,OverWriteFiles,1
-IniRead ExitAfter,%Prog_Ini%,Settings,ExitAfter,1
-IniRead XPos,%Prog_Ini%,Settings,XPos
-IniRead YPos,%Prog_Ini%,Settings,YPos
-IniRead GuiHeight,%Prog_Ini%,Settings,Height,400
-IniRead GuiWidth,%Prog_Ini%,Settings,Width,680
+IniRead ExtractToMKA,%sProg_Ini%,Settings,ExtractToMKA,0
+IniRead OverWriteFiles,%sProg_Ini%,Settings,OverWriteFiles,1
+IniRead ExitAfter,%sProg_Ini%,Settings,ExitAfter,1
+IniRead sWinPos,%sProg_Ini%,Settings,WinPos,0:0
+sArray := StrSplit(sWinPos,":")
+iXPos := sArray[1]
+iYPos := sArray[2]
 ;keep GUI on screen
-If (YPos > A_ScreenHeight)
-  YPos := A_ScreenHeight // 3
-If (XPos > A_ScreenWidth)
-  XPos := A_ScreenWidth // 3
+If (iYPos > A_ScreenHeight)
+  iYPos := A_ScreenHeight // 3
+If (iXPos > A_ScreenWidth)
+  iXPos := A_ScreenWidth // 3
+IniRead GuiHeight,%sProg_Ini%,Settings,Height,400
+IniRead GuiWidth,%sProg_Ini%,Settings,Width,680
 
 Gui +ToolWindow +LastFound +AlwaysOnTop +Resize +OwnDialogs
 Gui Margin,10,5
 
 Gui Add,Text,x2 y0 vInfoText,Loading File...
-TrackListing := MakeTrackListing(InFile)
+TrackListing := MakeTrackListing(sInFile)
 ListAmount := (TrackListing.MaxIndex() + 3)
 Gui Add,ListView,vTrackList gToggleSelectList Checked Count%ListAmount% r%ListAmount%,Track|Type|Codec|Misc
 ;stop drawing till list populated
@@ -74,7 +77,7 @@ LV_ModifyCol(2,50)
 LV_ModifyCol(3,125)
 LV_ModifyCol(4,430)
 
-Gui Show,x%XPos% y%YPos%,%Prog_Name%: %TitleName%
+Gui Show,x%iXPos% y%iYPos%,%sProg_Name%: %TitleName%
 GuiControl Text,InfoText,Choose tracks to extract:
 GuiControl Move,InfoText,W300
 
@@ -87,7 +90,7 @@ Gui Add,CheckBox,y0 x0 vExtractToMKA,MKA
 Gui Add,CheckBox,y0 x0 vOverWriteFiles,Overwrite?
 Gui Add,CheckBox,y0 x0 vExitAfter,Exit after
 ;tooltips
-SplitPath InFile,,OutputDir,OutExt,OutputName
+SplitPath sInFile,,OutputDir,OutExt,OutputName
 ButtonExtract_TT := "Extract file(s) to " OutputDir
 CancelBut_TT := "Exit without doing anything."
 ToggleSelect_TT := "Toggle checkmarks."
@@ -100,7 +103,7 @@ GuiControl,,ExtractToMKA,%ExtractToMKA%
 GuiControl,,OverWriteFiles,%OverWriteFiles%
 GuiControl,,ExitAfter,%ExitAfter%
 
-Gui Show,x%XPos% y%YPos% w%GuiWidth% h%GuiHeight%,%Prog_Name%: %TitleName%
+Gui Show,x%iXPos% y%iYPos% w%GuiWidth% h%GuiHeight%,%sProg_Name%: %TitleName%
 
 ;for tooltips
 OnMessage(0x200,"WM_MOUSEMOVE")
@@ -158,23 +161,23 @@ Return
 
 GuiClose:
 GuiEscape:
-  Script_PID := DllCall("GetCurrentProcessId")
-  WinGetPos XPosT,YPosT,GuiWidth,GuiHeight,ahk_pid %Script_PID%
-  If (XPosT != "" or XPosT > "0")
-    XPos := XPosT
-  If (YPosT != "" or YPosT > "0")
-    YPos := YPosT
+  iScript_PID := DllCall("GetCurrentProcessId")
+  WinGetPos iXPosT,iYPosT,GuiWidth,GuiHeight,ahk_pid %iScript_PID%
+  If (iXPosT)
+    iXPos := iXPosT
+  If (iYPosT)
+    iYPos := iYPosT
   GuiControlGet ExtractToMKA
   GuiControlGet OverWriteFiles
   GuiControlGet ExitAfter
 
-  IniWrite %ExtractToMKA%,%Prog_Ini%,Settings,ExtractToMKA
-  IniWrite %OverWriteFiles%,%Prog_Ini%,Settings,OverWriteFiles
-  IniWrite %ExitAfter%,%Prog_Ini%,Settings,ExitAfter
-  IniWrite %XPos%,%Prog_Ini%,Settings,XPos
-  IniWrite %YPos%,%Prog_Ini%,Settings,YPos
-  ;IniWrite %GuiWidth%,%Prog_Ini%,Settings,Width
-  ;IniWrite %GuiHeight%,%Prog_Ini%,Settings,Height
+  IniWrite %ExtractToMKA%,%sProg_Ini%,Settings,ExtractToMKA
+  IniWrite %OverWriteFiles%,%sProg_Ini%,Settings,OverWriteFiles
+  IniWrite %ExitAfter%,%sProg_Ini%,Settings,ExitAfter
+  sWinPos := iXPos ":" iYPos
+  IniWrite %sWinPos%,%sProg_Ini%,Settings,WinPos
+  ;IniWrite %GuiWidth%,%sProg_Ini%,Settings,Width
+  ;IniWrite %GuiHeight%,%sProg_Ini%,Settings,Height
 ExitApp
 
 ToggleSelectList:
@@ -207,7 +210,7 @@ BatchFileList(WHICH)
     RowNumber := TempNumber
     }
   ;nothing checked off, so probably misclick
-  If (RowNumber = "")
+  If !(RowNumber)
     Return
 
   DirTmp := OutputDir
@@ -215,7 +218,7 @@ BatchFileList(WHICH)
   BatchFile := True
   BatchFileOutput := ""
 
-  If (WHICH = 0)
+  If !(WHICH)
     {
     Loop Files,%DirTmp%\*.mkv
       {
@@ -223,7 +226,7 @@ BatchFileList(WHICH)
       BatchFileOutput .= ExtractFiles() "`n"
       }
     }
-  Else If (WHICH = 1)
+  Else If (WHICH)
     {
     Loop Parse,A_GuiEvent,`n
       {
@@ -251,12 +254,12 @@ ButtonExtract:
     RowNumber := TempNumber
     }
   ;nothing checked off, so probably misclick
-  If (RowNumber = "")
+  If !(RowNumber)
     Return
 
   ExtractFiles()
 
-  If (ExitAfter = 1)
+  If (ExitAfter)
     GoTo GuiClose
 Return
 
@@ -265,12 +268,12 @@ ExtractFiles()
   ;update control vars
   Gui Submit,NoHide
 
-  If (ExtractToMKA = 1)
+  If (ExtractToMKA)
     {
     If (OverWriteFiles = 0 && FileExist(OutputDir "\" OutputName ".mka"))
-      ExtractTracks := Prog_Dir Merge_Exe " --output " """" OutputDir "\" OutputName "-" A_NowUTC ".mka"""
+      ExtractTracks := sProg_Dir Merge_Exe " --output " """" OutputDir "\" OutputName "-" A_TickCount ".mka"""
     Else
-      ExtractTracks := Prog_Dir Merge_Exe " --output " """" OutputDir "\" OutputName ".mka"""
+      ExtractTracks := sProg_Dir Merge_Exe " --output " """" OutputDir "\" OutputName ".mka"""
     ;reset some vars
     VideoT_Index := ""
     AudioT_Index := ""
@@ -281,7 +284,7 @@ ExtractFiles()
     }
   Else
     {
-    ExtractTracks := Prog_Dir Prog_Exe " tracks " """" OutputDir "\" OutputName "." OutExt """"
+    ExtractTracks := sProg_Dir sProg_Exe " tracks " """" OutputDir "\" OutputName "." OutExt """"
     }
   ;I'm lazy so we're sorting by track column
   LV_ModifyCol(1,"Sort")
@@ -298,7 +301,7 @@ ExtractFiles()
       ;MsgBox % TrackListing[A_Index][3]
 
       ;build extraction list
-      If (ExtractToMKA = 1)
+      If (ExtractToMKA)
         {
         If (TrackListing[A_Index][2] = "audio")
           {
@@ -328,7 +331,7 @@ ExtractFiles()
         Else If (InStr(TrackListing[A_Index][3],"SubStationAlpha") > 0)
           ExtractTracks .= BuildTrack(Index,"ass")
         ;audio
-        Else If (InStr(TrackListing[A_Index][3],"AC-3/E-AC-3") > 0)
+        Else If (InStr(TrackListing[A_Index][3],"AC-3") > 0)
           ExtractTracks .= BuildTrack(Index,"ac3")
         Else If (InStr(TrackListing[A_Index][3],"AAC") > 0)
           ExtractTracks .= BuildTrack(Index,"aac")
@@ -345,9 +348,9 @@ ExtractFiles()
         Else If (InStr(TrackListing[A_Index][3],"PCM") > 0)
           ExtractTracks .= BuildTrack(Index,"wav")
         ;video
-        Else If (InStr(TrackListing[A_Index][3],"HEVC/h.265") > 0)
+        Else If (InStr(TrackListing[A_Index][3],"HEVC") > 0)
           ExtractTracks .= BuildTrack(Index,"hevc")
-        Else If (InStr(TrackListing[A_Index][3],"AVC/h.264") > 0)
+        Else If (InStr(TrackListing[A_Index][3],"AVC") > 0)
           ExtractTracks .= BuildTrack(Index,"avc")
         Else If (InStr(TrackListing[A_Index][3],"MPEG-4") > 0)
           ExtractTracks .= BuildTrack(Index,"mp4")
@@ -368,7 +371,7 @@ ExtractFiles()
       }
     }
 
-  If (ExtractToMKA = 1)
+  If (ExtractToMKA)
     {
     BuildTrackMKA(VideoT,VideoT_Index," --no-video"," --video-tracks ")
     BuildTrackMKA(AudioT,AudioT_Index," --no-audio"," --audio-tracks ")
@@ -376,7 +379,7 @@ ExtractFiles()
     ExtractTracks := ExtractTracks " """ OutputDir "\" OutputName "." OutExt """"
     }
 
-  If (BatchFile = True)
+  If (BatchFile)
     Return ExtractTracks
   Else
     Run %ExtractTracks%
@@ -384,14 +387,14 @@ ExtractFiles()
 
 BuildTrack(INDEX,EXT)
   {
-  If (OverWriteFiles = 0 && FileExist(OutputDir "\" OutputName ".Track" INDEX "." EXT))
-    Return A_Space INDEX ":""" OutputDir "\" OutputName """.Track" INDEX "-" A_NowUTC "." EXT
+  If !(OverWriteFiles) && (FileExist(OutputDir "\" OutputName ".Track" INDEX "." EXT))
+    Return A_Space INDEX ":""" OutputDir "\" OutputName """.Track" INDEX "-" A_TickCount "." EXT
   Return A_Space INDEX ":""" OutputDir "\" OutputName """.Track" INDEX "." EXT
   }
 
 BuildTrackMKA(NAME,INDEX,SKIPFILE,INCLUDEFILE)
   {
-  If (NAME = 0)
+  If !(NAME)
     {
     ExtractTracks := ExtractTracks SKIPFILE
     }
@@ -405,9 +408,9 @@ BuildTrackMKA(NAME,INDEX,SKIPFILE,INCLUDEFILE)
 MakeTrackListing(FILENAME)
   {
   SplitPath FILENAME,TitleName
-  Gui Show,,%Prog_Name%: %TitleName%
+  Gui Show,,%sProg_Name%: %TitleName%
 
-  JSONFile := StdOutToVar(Prog_Dir Merge_Exe " -J " """" FILENAME """")
+  JSONFile := StdOutToVar(sProg_Dir Merge_Exe " -J " """" FILENAME """")
   ;parse track listing
   TempList := []
   For key,value in Jxon_Load(JSONFile).tracks
@@ -417,23 +420,23 @@ MakeTrackListing(FILENAME)
 
 MakeMediaObject(VALUE)
   {
-  If (VALUE.properties.pixel_dimensions != "")
+  If (VALUE.properties.pixel_dimensions)
     {
     If (VALUE.properties.pixel_dimensions != VALUE.properties.display_dimensions)
       TempObject .= "| Pixel: " VALUE.properties.pixel_dimensions " \ Disp: " VALUE.properties.display_dimensions
     Else
       TempObject .= "| Res: " VALUE.properties.pixel_dimensions
     }
-  If (VALUE.properties.audio_sampling_frequency != "")
+  If (VALUE.properties.audio_sampling_frequency)
     TempObject .= "| Rate: " VALUE.properties.audio_sampling_frequency
-  If (VALUE.properties.audio_channels != "")
+  If (VALUE.properties.audio_channels)
     TempObject .= "| Channels: " VALUE.properties.audio_channels
   If (VALUE.properties.language != "" && VALUE.properties.language != "und")
     TempObject .= "| Lang: " VALUE.properties.language
-  If (VALUE.properties.track_name != "")
+  If (VALUE.properties.track_name)
     TempObject .= "| Name: " VALUE.properties.track_name
   ;remove starting |
-  If (InStr(TempObject,"|") = 1)
+  If (InStr(TempObject,"|"))
     {
     FoundLen := StrLen(TempObject)
     TempObject := SubStr(TempObject,3,FoundLen)
@@ -447,7 +450,8 @@ WM_MOUSEMOVE()
   {
   Static CurrControl,PrevControl,_TT
   CurrControl := A_GuiControl
-  If (CurrControl <> PrevControl and not InStr(CurrControl, " "))
+  ;If (CurrControl <> PrevControl && ! InStr(CurrControl," "))
+  If (CurrControl <> PrevControl && ! InStr(CurrControl,A_Space))
     {
     ToolTip
     SetTimer DisplayToolTip,1000

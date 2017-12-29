@@ -1,19 +1,37 @@
+/*
+;fAffinitySet(),fAffinityGet,fGetPID()
+;fEnumProcesses(),fSeDebugPrivilege(),fSetIOPriority(),fEmptyMem()
+sLoadDlls := "wtsapi32:advapi32:ntdll:psapi"
+#Include <Processes>
+*/
+
 ;load dlls into memory
-Global wtsapi32 := LoadLibrary("wtsapi32"),advapi32 := LoadLibrary("advapi32")
+If sLoadDlls
+  {
+  Loop Parse,sLoadDlls,:
+    %A_LoopField% := LoadLibrary(A_LoopField)
+
+  Global wtsapi32,advapi32,ntdll,psapi
+  }
 
 /*
-Speedup DllCall's (excluded: "User32.dll", "Kernel32.dll", "ComCtl32.dll" & "Gdi32.dll")
+Speedup DllCall (excluded: "User32.dll", "Kernel32.dll", "ComCtl32.dll" & "Gdi32.dll")
+See DllCall>Performance section
+
+Ex:
 global psapi := LoadLibrary("psapi")
 DllCall(psapi.EmptyWorkingSet,"UInt",h)
+When done:
+FreeLibrary("psapi")
 
 LoadLibrary & FreeLibrary by Bentschi
 https://autohotkey.com/board/topic/90266-funktionen-loadlibrary-freelibrary-schnellere-dllcalls/
 https://github.com/ahkscript/ASPDM/blob/master/Local-Client/Test_Packages/loadlibrary/Lib/loadlibrary.ahk
 */
-LoadLibrary(filename)
+LoadLibrary(sDllName)
   {
   Static ref := {}
-  If (!(ptr := p := DllCall("LoadLibrary","str",filename,"ptr")))
+  If (!(ptr := p := DllCall("LoadLibrary","str",sDllName,"ptr")))
     Return 0
   ref[ptr,"count"] := (ref[ptr]) ? ref[ptr,"count"]+1 : 1
   p += NumGet(p+0,0x3c,"int")+24
@@ -21,7 +39,7 @@ LoadLibrary(filename)
   If (NumGet(p+0,(A_PtrSize=4) ? 92 : 108,"uint")<1 || (ts := NumGet(p+0,(A_PtrSize=4) ? 96 : 112,"uint")+ptr)=ptr || (te := NumGet(p+0,(A_PtrSize=4) ? 100 : 116,"uint")+ts)=ts)
     Return o
   n := ptr+NumGet(ts+0,32,"uint")
-  loop % NumGet(ts+0,24,"uint")
+  Loop % NumGet(ts+0,24,"uint")
     {
     If (p := NumGet(n+0,(A_Index-1)*4,"uint"))
       {
@@ -32,16 +50,58 @@ LoadLibrary(filename)
     }
   Return o
   }
-
 /*
 FreeLibrary(lib)
   {
-  If (lib._ref.count>=1)
+  If (lib._ref.count > =1)
     lib._ref.count -= 1
-  If (lib._ref.count<1)
+  If (lib._ref.count < 1)
     DllCall("FreeLibrary","ptr",lib._ptr)
   }
+*/
 
+;returns PID from *name*.exe,*name*,PID
+fGetPID(siProc)
+  {
+  If siProc Is integer
+    Return siProc
+  Else
+    {
+    Process Exist,%siProc%.exe
+    If (ErrorLevel)
+      Return ErrorLevel
+    Process Exist,%siProc%
+    Return ErrorLevel
+    }
+  }
+
+/*
+Set process IO Priority
+-1 makes it blank in process hacker, and 7 in process explorer.
+
+;sets pid 11441 to very low io
+fSetIOPriority(11441)
+;sets explorer.exe to low
+fSetIOPriority("explorer",1)
+;sets explorer.exe to normal
+fSetIOPriority("explorer.exe",2)
+
+;fSetIOPriority()
+sLoadDlls := "ntdll"
+#Include <Processes>
+fSetIOPriority(DllCall("GetCurrentProcessId"))
+
+made by ChoGGi, and thanks to ReactOS DDK ntddk.h
+*/
+fSetIOPriority(siProc,iPriority := 0)
+  {
+  iPID := fGetPID(siProc)
+  iHandle := DllCall("OpenProcess","UInt",PROCESS_SET_INFORMATION := 0x0200,"Int",0,"UInt",iPID)
+  DllCall(ntdll.NtSetInformationProcess,"UInt",iHandle,"UInt",ProcessIoPriority := 33,"UInt*",iPriority,"UInt",4)
+  DllCall("CloseHandle","Ptr",iHandle)
+  }
+
+/*
 https://msdn.microsoft.com/en-us/library/windows/desktop/ms684320
 HANDLE WINAPI OpenProcess(
   _In_ DWORD dwDesiredAccess,
@@ -51,11 +111,13 @@ HANDLE WINAPI OpenProcess(
 PROCESS_QUERY_INFORMATION (0x0400)
 PROCESS_SET_INFORMATION (0x0200)
 0x0200 (512) + 0x0400 (1024) = 1536
+
 https://msdn.microsoft.com/en-us/library/windows/desktop/ms686223
 BOOL WINAPI SetProcessAffinityMask(
   _In_ HANDLE    hProcess,
   _In_ DWORD_PTR dwProcessAffinityMask
 );
+
 https://msdn.microsoft.com/en-us/library/windows/desktop/ms683213
 BOOL WINAPI GetProcessAffinityMask(
   _In_  HANDLE     hProcess,
@@ -63,30 +125,36 @@ BOOL WINAPI GetProcessAffinityMask(
   _Out_ PDWORD_PTR lpSystemAffinityMask
 );
 
-Affinity_Set(CPUmask,PID)
+Affinity_Set(CPUmask,{PID/Process name})
 By SKAN
 https://autohotkey.com/board/topic/7984-ahk-functions-incache-cache-list-of-recent-items/page-7#post_id_191053
 */
-Affinity_Set(CPU,PID)
+fAffinitySet(sCPU,siProc)
   {
-  hPr := DllCall("OpenProcess","Int",512,"Int",0,"Int",PID)
-  DllCall("SetProcessAffinityMask","Ptr",hPr,"UPtr",CPU)
-  DllCall("CloseHandle","Ptr",hPr)
+  iPID := fGetPID(siProc)
+  If !InStr(sCPU,"0x")
+    sCPU := "0x" sCPU
+
+  iHandle := DllCall("OpenProcess","Int",512,"Int",0,"Int",iPID)
+  DllCall("SetProcessAffinityMask","Ptr",iHandle,"UPtr",sCPU)
+  DllCall("CloseHandle","Ptr",iHandle)
   }
 
 /*
 SetFormat IntegerFast,Hex
-Process Exist,dopus.exe
-ProcAff := Affinity_Get(ErrorLevel)
-StringReplace ProcAff,ProcAff,0x,0x0
+ProcAff := fAffinityGet("dopus.exe")
+ProcAff := StrReplace(ProcAff,"0x")
 msgbox %ProcAff%
 Return
 
 https://autohotkey.com/boards/viewtopic.php?t=18233
 By Coco
-Affinity_Get(PID)
+*/
+fAffinityGet(siProc)
   {
-  hPr := DllCall("OpenProcess","Int",1024,"Int",0,"Int",PID)
+  iPID := fGetPID(siProc)
+
+  hPr := DllCall("OpenProcess","Int",1024,"Int",0,"Int",iPID)
   VarSetCapacity(PAf,8,0)
   ;VarSetCapacity(PAf,8,0),VarSetCapacity(SAf,8,0)
   ;DllCall("GetProcessAffinityMask","Ptr",hPr,"UPtrP",&PAf,"UPtrP",&SAf)
@@ -95,58 +163,74 @@ Affinity_Get(PID)
   Return NumGet(PAf,0,"Int64")
   }
 
-EmptyMem(PIDofprogramtoclearmem)
+/*
+https://msdn.microsoft.com/en-us/library/windows/desktop/ms686714.aspx
+terminates without unloading dlls
+
+By ChoGGi
+
+fTerminateProcess(siProc)
+  {
+  iPID := fGetPID(siProc)
+  hPr := DllCall("OpenProcess","Int",0x0001,"Int",0,"Int",iPID)
+  DllCall("TerminateProcess","Ptr",hPr,"Int",0)
+  DllCall("CloseHandle","Ptr",hPr)
+  }
+*/
+
+/*
 By heresy
 https://autohotkey.com/board/topic/30042-run-ahk-scripts-with-less-half-or-even-less-memory-usage/
 */
-EmptyMem(PID="AHK Rocks")
+fEmptyMem(siProc)
   {
-  pid:=(pid="AHK Rocks") ? DllCall("GetCurrentProcessId") : pid
-  h:=DllCall("OpenProcess","UInt",0x001F0FFF,"Int",0,"Int",pid)
-  ;DllCall("SetProcessWorkingSetSize","UInt",h,"Int",-1,"Int",-1)
-  DllCall("psapi.dll\EmptyWorkingSet","UInt",h)
-  DllCall("CloseHandle","Int",h)
+  iPID := fGetPID(siProc)
+
+  iHandle := DllCall("OpenProcess","UInt",0x001F0FFF,"Int",0,"Int",iPID)
+  DllCall(psapi.EmptyWorkingSet,"UInt",iHandle)
+  DllCall("CloseHandle","Int",iHandle)
   }
 
 /*
-returns list of processes (using PID@processame.exe|PID2@processame.exe)
+returns list of processes (using PID:processame.exe|PID2:processame.exe)
 
 By SKAN, http://goo.gl/6Zwnwu, CD:24/Aug/2014 | MD:25/Aug/2014
 */
-EnumProcesses(which*)
+fEnumProcesses(iWhich := 0)
   {
   Local tPtr := 0,pPtr := 0,nTTL := 0,LIST := ""
   If !(DllCall(wtsapi32.WTSEnumerateProcesses,"Ptr",0,"UInt",0,"UInt",1,"Ptr*",pPtr,"UInt*",nTTL))
-    Return "",DllCall("kernel32.dll\SetLastError","UInt",-1)
+    Return "",DllCall("SetLastError","UInt",-1)
+    ;Return "",DllCall("kernel32.dll\SetLastError","UInt",-1)
 
   tPtr := pPtr
 
-  If (which = true)
+  If (iWhich = 0) ;proc:pid|proc:pid|
     {
-    Loop % ( nTTL )
-    LIST .= NumGet( tPtr + 4,"UInt" ) "|"
+    Loop % (nTTL)
+    LIST .= NumGet( tPtr + 4,"UInt" ) ":" StrGet( NumGet( tPtr + 8 ) ) "|"
       ,tPtr += ( A_PtrSize = 4 ? 16 : 24 )    ; sizeof( WTS_PROCESS_INFO )
     }
-  Else
+  Else ;pid|pid|
     {
-    Loop % ( nTTL )
-    LIST .= NumGet( tPtr + 4,"UInt" ) "@" StrGet( NumGet( tPtr + 8 ) ) "|"
+    Loop % (nTTL)
+    LIST .= NumGet( tPtr + 4,"UInt" ) "|"
       ,tPtr += ( A_PtrSize = 4 ? 16 : 24 )    ; sizeof( WTS_PROCESS_INFO )
     }
 
   ;DllCall("Wtsapi32.dll\WTSFreeMemory","Ptr",pPtr)
   DllCall(wtsapi32.WTSFreeMemory,"Ptr",pPtr)
 
-  Return LIST,DllCall("kernel32.dll\SetLastError","UInt",nTTL)
+  Return LIST,DllCall("SetLastError","UInt",nTTL)
+  ;Return LIST,DllCall("kernel32.dll\SetLastError","UInt",nTTL)
   }
 /*
-call SeDebugPrivilege()
 so we can change service processes
 
 from ahk manual
 Process function Example #4:
 */
-SeDebugPrivilege()
+fSeDebugPrivilege()
   {
   h := DllCall("OpenProcess","UInt",0x0400,"Int",false,"UInt",DllCall("GetCurrentProcessId"),"Ptr")
   ; Open an adjustable access token with this process (TOKEN_ADJUST_PRIVILEGES = 32)
