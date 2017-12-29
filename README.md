@@ -10,7 +10,7 @@ The defaults are for three monitors at 5760 (3*1920)
 
 ### ProcessChanger.ahk
 Sets Priority, IO Priority, and Affinity (also has run/kill list)
-Loops through process list every %iDelay%
+Loops through process list every *Delay*
 also checks list on window created
 
 ProcessChanger.exe "Process name" will return the affinity mask
