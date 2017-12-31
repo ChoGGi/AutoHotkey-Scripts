@@ -1,6 +1,6 @@
 /*
 Sets Priority, IO Priority, and Affinity (also has run/kill list)
-Loops through process list every %iDelay%
+Loops through process list every *Delay*
 also checks list on window created
 
 ProcessChanger.exe "Process name" will return the affinity mask
@@ -37,7 +37,7 @@ sLoadDlls := "wtsapi32:advapi32:ntdll" ;skip psapi (fEmptyMem() dll)
 #Include <Processes>
 
 ;user wants an affinity mask
-If (A_Args.Length())
+If A_Args.Length()
   {
   For iIndex,sInputFile in A_Args
     fGetAffMask(sInputFile)
@@ -78,7 +78,7 @@ IniRead iChoGGi,%sProg_Ini%,Settings,ChoGGi,0
 
 ;show tray menu?
 IniRead sTrayIcon,%sProg_Ini%,Settings,TrayIcon,True
-If (sTrayIcon = "True" || sTrayIcon = True)
+If sTrayIcon = True || sTrayIcon = %True%
   {
   ;remove default items
   Menu Tray,NoStandard
@@ -105,7 +105,7 @@ Loop
   {
   ;check if ini changed
   FileGetTime iFileTimeLoop,%sProg_Ini%
-  If (iFileTimeLoop != iFileTime)
+  If iFileTimeLoop != %iFileTime%
     {
     ;update iFileTime with new time
     iFileTime := iFileTimeLoop
@@ -121,23 +121,23 @@ Loop
     oProcListArray := StrSplit(A_LoopField,":")
 
     ;set process priority
-    If (oPriorityList[oProcListArray[2]])
+    If oPriorityList[oProcListArray[2]]
       Process Priority,% oProcListArray[1],% oPriorityList[oProcListArray[2]]
 
     ;set process IO priority (it's either 0,1,2 so we need to use > -1)
-    If (oIOPriorityList[oProcListArray[2]] > -1)
+    If oIOPriorityList[oProcListArray[2]] > -1
       fSetIOPriority(oProcListArray[1],oIOPriorityList[oProcListArray[2]])
 
     ;set default process affinity
-    If (oAffinityList[oProcListArray[2]])
+    If oAffinityList[oProcListArray[2]]
       fAffinitySet(sDefaultAffinity,oProcListArray[1])
 
     ;set process affinity (custom)
-    If (oAffinityListCustom[oProcListArray[2]])
+    If oAffinityListCustom[oProcListArray[2]]
       fAffinitySet(oAffinityListCustom[oProcListArray[2]],oProcListArray[1])
 
     ;kill process
-    If (oKillList[oProcListArray[2]])
+    If oKillList[oProcListArray[2]]
       Process Close,% oProcListArray[1]
     }
 
@@ -146,7 +146,7 @@ Loop
     {
     oTempArray := StrSplit(A_LoopField,"|")
     Process Exist,% oTempArray[1]
-    If !(ErrorLevel)
+    If !ErrorLevel
       Run % oTempArray[2] "\" oTempArray[1],% oTempArray[1],UseErrorLevel
     }
 
@@ -176,45 +176,45 @@ fGetAffMask(sInputFile)
 fShellMessage(iWinParam,iLParam)
   {
   ;we only want created windows (HSHELL_WINDOWCREATED = 1)
-  If (iWinParam != 1)
+  If iWinParam != 1
     Return
 
   ;blank titles
   WinGetTitle sWinTitle,ahk_id %iLParam%
   ;skip script exe
   WinGet iWinPID,PID,ahk_id %iLParam%
-  If !(sWinTitle) || (iWinPID = iScript_PID)
+  If !sWinTitle || iWinPID = %iScript_PID%
     Return
 
   ;get process name
   WinGet sProcName,ProcessName,ahk_id %iLParam%
 
   ;set process priority
-  If (oPriorityList[sProcName])
+  If oPriorityList[sProcName]
     {
     Process Priority,%iWinPID%,% oPriorityList[sProcName]
     ;WORKAROUND:
     ;VBoxSVC doesn't have a detectable window, and you can't change opened
     ;VirtualBox.exe after vm has started (added in v5something)
-    If (sProcName = "VirtualBox.exe")
+    If sProcName = VirtualBox.exe
       Process Priority,VBoxSVC.exe,L
     }
 
   ;set process IO priority
-  If (oIOPriorityList[sProcName] > -1)
+  If oIOPriorityList[sProcName] > -1
     {
     fSetIOPriority(iWinPID,oIOPriorityList[sProcName])
     ;WORKAROUND (see above):
-    If (sProcName = "VirtualBox.exe")
+    If sProcName = VirtualBox.exe
       fSetIOPriority("VBoxSVC",oIOPriorityList["VBoxSVC.exe"])
     }
 
   ;set process affinity (to last 4 cores, technically 2 with HT)
-  If (oAffinityList[sProcName])
+  If oAffinityList[sProcName]
     fAffinitySet(sDefaultAffinity,iWinPID)
 
   ;set process affinity (custom)
-  If (oAffinityListCustom[sProcName])
+  If oAffinityListCustom[sProcName]
     fAffinitySet(oAffinityListCustom[sProcName],iWinPID)
 
   }

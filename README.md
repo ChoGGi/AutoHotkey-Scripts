@@ -4,8 +4,8 @@ Some personal scripts for AutoHotkey
 ### WinPosition.ahk
 Push new windows to the right by *PushAmount*
 
-Useful for people with NV Surround or Eyefinity;
-who want to have programs display in centre monitor.
+Useful for people with NV Surround or Eyefinity (or ultrawide monitors);
+who want to have programs display at centre (relative to how they first appear).
 The defaults are for three monitors at 5760 (3*1920)
 
 ### ProcessChanger.ahk
@@ -22,3 +22,6 @@ Using MKVToolNix (mkvextract/mkvmerge)
 https://mkvtoolnix.download
 
 mkvextractAGUI Example.mkv
+
+
+##### Default settings are created on first run

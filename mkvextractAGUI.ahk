@@ -8,7 +8,7 @@ mkvextractAGUI Example.mkv
 Requires:
 https://github.com/cocobelgica/AutoHotkey-JSON/blob/master/Jxon.ahk (1560aaa on 6 Apr 2016)
 https://github.com/cocobelgica/AutoHotkey-Util/blob/master/StdOutToVar.ahk (3541fbe on 25 Aug 2014)
-SetPath (see lib dir)
+https://github.com/ChoGGi/AutoHotkey-Scripts/blob/master/Lib/SetPath.ahk
 
 v0.01
 Initial Release
@@ -34,7 +34,7 @@ sProg_Exe := "\mkvextract.exe"
 Merge_Exe := "\mkvmerge.exe"
 #Include <SetPath>
 
-If (A_Args.Length())
+If A_Args.Length()
   sInFile := A_Args[1]
 Else
   {
@@ -51,9 +51,9 @@ sArray := StrSplit(sWinPos,":")
 iXPos := sArray[1]
 iYPos := sArray[2]
 ;keep GUI on screen
-If (iYPos > A_ScreenHeight)
+If iYPos > %A_ScreenHeight%
   iYPos := A_ScreenHeight // 3
-If (iXPos > A_ScreenWidth)
+If iXPos > %A_ScreenWidth%
   iXPos := A_ScreenWidth // 3
 IniRead GuiHeight,%sProg_Ini%,Settings,Height,400
 IniRead GuiWidth,%sProg_Ini%,Settings,Width,680
@@ -137,11 +137,9 @@ GuiSize:
 Return
 
 GuiDropFiles:
-  If (A_GuiControl = "BatchFile" or A_GuiControl = "BatchFileDrop")
-    {
+  If A_GuiControl = BatchFile || A_GuiControl = BatchFileDrop
     GoSub BatchFileDrop
-    }
-  Else If (A_GuiControl = "TrackList")
+  Else If A_GuiControl = TrackList
     {
     LV_Delete()
     ;we only want the first file dropped
@@ -163,9 +161,9 @@ GuiClose:
 GuiEscape:
   iScript_PID := DllCall("GetCurrentProcessId")
   WinGetPos iXPosT,iYPosT,GuiWidth,GuiHeight,ahk_pid %iScript_PID%
-  If (iXPosT)
+  If iXPosT
     iXPos := iXPosT
-  If (iYPosT)
+  If iYPosT
     iYPos := iYPosT
   GuiControlGet ExtractToMKA
   GuiControlGet OverWriteFiles
@@ -181,7 +179,7 @@ GuiEscape:
 ExitApp
 
 ToggleSelectList:
-  If (A_GuiEvent = "DoubleClick")
+  If A_GuiEvent = DoubleClick
     ToggleListView(A_EventInfo)
 Return
 
@@ -205,12 +203,12 @@ BatchFileList(WHICH)
   Loop
     {
     TempNumber := LV_GetNext(TempNumber,"Checked")
-    If Not TempNumber
+    If !TempNumber
       Break
     RowNumber := TempNumber
     }
   ;nothing checked off, so probably misclick
-  If !(RowNumber)
+  If !RowNumber
     Return
 
   DirTmp := OutputDir
@@ -218,7 +216,7 @@ BatchFileList(WHICH)
   BatchFile := True
   BatchFileOutput := ""
 
-  If !(WHICH)
+  If !WHICH
     {
     Loop Files,%DirTmp%\*.mkv
       {
@@ -226,7 +224,7 @@ BatchFileList(WHICH)
       BatchFileOutput .= ExtractFiles() "`n"
       }
     }
-  Else If (WHICH)
+  Else If WHICH
     {
     Loop Parse,A_GuiEvent,`n
       {
@@ -249,17 +247,17 @@ ButtonExtract:
   Loop
     {
     TempNumber := LV_GetNext(TempNumber,"Checked")
-    If Not TempNumber
+    If !TempNumber
       Break
     RowNumber := TempNumber
     }
   ;nothing checked off, so probably misclick
-  If !(RowNumber)
+  If !RowNumber
     Return
 
   ExtractFiles()
 
-  If (ExitAfter)
+  If ExitAfter
     GoTo GuiClose
 Return
 
@@ -268,9 +266,9 @@ ExtractFiles()
   ;update control vars
   Gui Submit,NoHide
 
-  If (ExtractToMKA)
+  If ExtractToMKA
     {
-    If (OverWriteFiles = 0 && FileExist(OutputDir "\" OutputName ".mka"))
+    If !OverWriteFiles && FileExist(OutputDir "\" OutputName ".mka")
       ExtractTracks := sProg_Dir Merge_Exe " --output " """" OutputDir "\" OutputName "-" A_TickCount ".mka"""
     Else
       ExtractTracks := sProg_Dir Merge_Exe " --output " """" OutputDir "\" OutputName ".mka"""
@@ -283,9 +281,7 @@ ExtractFiles()
     SubtitlesT := 0
     }
   Else
-    {
     ExtractTracks := sProg_Dir sProg_Exe " tracks " """" OutputDir "\" OutputName "." OutExt """"
-    }
   ;I'm lazy so we're sorting by track column
   LV_ModifyCol(1,"Sort")
 
@@ -293,7 +289,7 @@ ExtractFiles()
     {
     SendMessage 4140,A_index - 1,0xF000,SysListView321
     IsChecked := (ErrorLevel >> 12) - 1
-    If (IsChecked)
+    If IsChecked
       {
       ;indexes start at 0...
       Index := A_Index - 1
@@ -301,19 +297,20 @@ ExtractFiles()
       ;MsgBox % TrackListing[A_Index][3]
 
       ;build extraction list
-      If (ExtractToMKA)
+      If ExtractToMKA
         {
-        If (TrackListing[A_Index][2] = "audio")
+        sTempVar := TrackListing[A_Index][2]
+        If sTempVar = audio
           {
           AudioT_Index .= "," Index
           AudioT++
           }
-        Else If (TrackListing[A_Index][2] = "subtitles")
+        Else If sTempVar = subtitles
           {
           SubtitlesT_Index .= "," Index
           SubtitlesT++
           }
-        Else If (TrackListing[A_Index][2] = "video")
+        Else If sTempVar = video
           {
           VideoT_Index .= "," Index
           VideoT++
@@ -322,47 +319,47 @@ ExtractFiles()
       Else
         {
         ;name extensions of common subtitle tracks
-        If (InStr(TrackListing[A_Index][3],"VobSub") > 0)
+        If InStr(TrackListing[A_Index][3],"VobSub")
           ExtractTracks .= BuildTrack(Index,"idx")
-        Else If (InStr(TrackListing[A_Index][3],"SubRip/SRT") > 0)
+        Else If InStr(TrackListing[A_Index][3],"SubRip/SRT")
           ExtractTracks .= BuildTrack(Index,"srt")
-        Else If (InStr(TrackListing[A_Index][3],"HDMV PGS") > 0)
+        Else If InStr(TrackListing[A_Index][3],"HDMV PGS")
           ExtractTracks .= BuildTrack(Index,"pgs.sup")
-        Else If (InStr(TrackListing[A_Index][3],"SubStationAlpha") > 0)
+        Else If InStr(TrackListing[A_Index][3],"SubStationAlpha")
           ExtractTracks .= BuildTrack(Index,"ass")
         ;audio
-        Else If (InStr(TrackListing[A_Index][3],"AC-3") > 0)
+        Else If InStr(TrackListing[A_Index][3],"AC-3")
           ExtractTracks .= BuildTrack(Index,"ac3")
-        Else If (InStr(TrackListing[A_Index][3],"AAC") > 0)
+        Else If InStr(TrackListing[A_Index][3],"AAC")
           ExtractTracks .= BuildTrack(Index,"aac")
-        Else If (InStr(TrackListing[A_Index][3],"MP3") > 0)
+        Else If InStr(TrackListing[A_Index][3],"MP3")
           ExtractTracks .= BuildTrack(Index,"mp3")
-        Else If (InStr(TrackListing[A_Index][3],"Vorbis") > 0)
+        Else If InStr(TrackListing[A_Index][3],"Vorbis")
           ExtractTracks .= BuildTrack(Index,"ogg")
-        Else If (InStr(TrackListing[A_Index][3],"Opus") > 0)
+        Else If InStr(TrackListing[A_Index][3],"Opus")
           ExtractTracks .= BuildTrack(Index,"opus")
-        Else If (InStr(TrackListing[A_Index][3],"FLAC") > 0)
+        Else If InStr(TrackListing[A_Index][3],"FLAC")
           ExtractTracks .= BuildTrack(Index,"flac")
-        Else If (InStr(TrackListing[A_Index][3],"DTS") > 0)
+        Else If InStr(TrackListing[A_Index][3],"DTS")
           ExtractTracks .= BuildTrack(Index,"dts")
-        Else If (InStr(TrackListing[A_Index][3],"PCM") > 0)
+        Else If InStr(TrackListing[A_Index][3],"PCM")
           ExtractTracks .= BuildTrack(Index,"wav")
         ;video
-        Else If (InStr(TrackListing[A_Index][3],"HEVC") > 0)
+        Else If InStr(TrackListing[A_Index][3],"HEVC")
           ExtractTracks .= BuildTrack(Index,"hevc")
-        Else If (InStr(TrackListing[A_Index][3],"AVC") > 0)
+        Else If InStr(TrackListing[A_Index][3],"AVC")
           ExtractTracks .= BuildTrack(Index,"avc")
-        Else If (InStr(TrackListing[A_Index][3],"MPEG-4") > 0)
+        Else If InStr(TrackListing[A_Index][3],"MPEG-4")
           ExtractTracks .= BuildTrack(Index,"mp4")
-        Else If (InStr(TrackListing[A_Index][3],"MPEG") > 0)
+        Else If InStr(TrackListing[A_Index][3],"MPEG")
           ExtractTracks .= BuildTrack(Index,"mpeg")
-        Else If (InStr(TrackListing[A_Index][3],"Theora") > 0)
+        Else If InStr(TrackListing[A_Index][3],"Theora")
           ExtractTracks .= BuildTrack(Index,"ogv")
-        Else If (InStr(TrackListing[A_Index][3],"DIV") > 0)
+        Else If InStr(TrackListing[A_Index][3],"DIV")
           ExtractTracks .= BuildTrack(Index,"divx")
-        Else If (InStr(TrackListing[A_Index][3],"VP8") > 0)
+        Else If InStr(TrackListing[A_Index][3],"VP8")
           ExtractTracks .= BuildTrack(Index,"vp8")
-        Else If (InStr(TrackListing[A_Index][3],"VP9") > 0)
+        Else If InStr(TrackListing[A_Index][3],"VP9")
           ExtractTracks .= BuildTrack(Index,"vp9")
         ;the rest
         Else
@@ -371,7 +368,7 @@ ExtractFiles()
       }
     }
 
-  If (ExtractToMKA)
+  If ExtractToMKA
     {
     BuildTrackMKA(VideoT,VideoT_Index," --no-video"," --video-tracks ")
     BuildTrackMKA(AudioT,AudioT_Index," --no-audio"," --audio-tracks ")
@@ -379,7 +376,7 @@ ExtractFiles()
     ExtractTracks := ExtractTracks " """ OutputDir "\" OutputName "." OutExt """"
     }
 
-  If (BatchFile)
+  If BatchFile
     Return ExtractTracks
   Else
     Run %ExtractTracks%
@@ -387,17 +384,15 @@ ExtractFiles()
 
 BuildTrack(INDEX,EXT)
   {
-  If !(OverWriteFiles) && (FileExist(OutputDir "\" OutputName ".Track" INDEX "." EXT))
+  If !OverWriteFiles && FileExist(OutputDir "\" OutputName ".Track" INDEX "." EXT)
     Return A_Space INDEX ":""" OutputDir "\" OutputName """.Track" INDEX "-" A_TickCount "." EXT
   Return A_Space INDEX ":""" OutputDir "\" OutputName """.Track" INDEX "." EXT
   }
 
 BuildTrackMKA(NAME,INDEX,SKIPFILE,INCLUDEFILE)
   {
-  If !(NAME)
-    {
+  If !NAME
     ExtractTracks := ExtractTracks SKIPFILE
-    }
   Else
     {
     INDEX := StrReplace(INDEX,",",,,1)
@@ -420,23 +415,23 @@ MakeTrackListing(FILENAME)
 
 MakeMediaObject(VALUE)
   {
-  If (VALUE.properties.pixel_dimensions)
+  If VALUE.properties.pixel_dimensions
     {
-    If (VALUE.properties.pixel_dimensions != VALUE.properties.display_dimensions)
+    If VALUE.properties.pixel_dimensions != VALUE.properties.display_dimensions
       TempObject .= "| Pixel: " VALUE.properties.pixel_dimensions " \ Disp: " VALUE.properties.display_dimensions
     Else
       TempObject .= "| Res: " VALUE.properties.pixel_dimensions
     }
-  If (VALUE.properties.audio_sampling_frequency)
+  If VALUE.properties.audio_sampling_frequency
     TempObject .= "| Rate: " VALUE.properties.audio_sampling_frequency
-  If (VALUE.properties.audio_channels)
+  If VALUE.properties.audio_channels
     TempObject .= "| Channels: " VALUE.properties.audio_channels
-  If (VALUE.properties.language != "" && VALUE.properties.language != "und")
+  If VALUE.properties.language && VALUE.properties.language != und
     TempObject .= "| Lang: " VALUE.properties.language
-  If (VALUE.properties.track_name)
+  If VALUE.properties.track_name
     TempObject .= "| Name: " VALUE.properties.track_name
   ;remove starting |
-  If (InStr(TempObject,"|"))
+  If InStr(TempObject,"|")
     {
     FoundLen := StrLen(TempObject)
     TempObject := SubStr(TempObject,3,FoundLen)
@@ -450,8 +445,7 @@ WM_MOUSEMOVE()
   {
   Static CurrControl,PrevControl,_TT
   CurrControl := A_GuiControl
-  ;If (CurrControl <> PrevControl && ! InStr(CurrControl," "))
-  If (CurrControl <> PrevControl && ! InStr(CurrControl,A_Space))
+  If (CurrControl != PrevControl && !InStr(CurrControl, " "))
     {
     ToolTip
     SetTimer DisplayToolTip,1000
@@ -477,7 +471,7 @@ ToggleListView(RowNum)
   {
   SendMessage 4140,RowNum - 1,0xF000,SysListView321
   IsChecked := (ErrorLevel >> 12) - 1
-  If (!IsChecked)
+  If !IsChecked
     LV_Modify(RowNum,"+Check")
   Else
     LV_Modify(RowNum,"-Check")

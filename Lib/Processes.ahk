@@ -68,7 +68,7 @@ fGetPID(siProc)
   Else
     {
     Process Exist,%siProc%.exe
-    If (ErrorLevel)
+    If ErrorLevel
       Return ErrorLevel
     Process Exist,%siProc%
     Return ErrorLevel
@@ -205,7 +205,7 @@ fEnumProcesses(iWhich := 0)
 
   tPtr := pPtr
 
-  If (iWhich = 0) ;proc:pid|proc:pid|
+  If iWhich = 0 ;proc:pid|proc:pid|
     {
     Loop % (nTTL)
     LIST .= NumGet( tPtr + 4,"UInt" ) ":" StrGet( NumGet( tPtr + 8 ) ) "|"
