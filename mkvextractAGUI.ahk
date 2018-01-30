@@ -18,8 +18,8 @@ Initial Release
 */
 #NoEnv
 #KeyHistory 0
-#SingleInstance Force
-;#SingleInstance Off
+;#SingleInstance Force
+#SingleInstance Off
 #NoTrayIcon
 SetBatchLines -1
 ListLines Off
