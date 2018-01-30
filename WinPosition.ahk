@@ -7,6 +7,8 @@ The defaults are for three monitors at 5760 (3*1920)
 
 Settings created on first run
 
+v0.03
+Code cleanup
 v0.02
 Wasn't pushing properly on certain wide windows
 v0.01
@@ -21,58 +23,43 @@ ListLines Off
 AutoTrim Off
 Process Priority,,L
 SetWinDelay -1
+OnExit lUnloadHook
 
 Global bLoopTitles,iPushAmount,iVisibleZone,iPrimaryWidth,iCloseAmount
       ,iWaitTime,iDelay,oIgnoreList,sIgnoreListTitles,iChoGGi
 
-;by AHK_Scripter
-;https://autohotkey.com/board/topic/80581-how-to-detect-a-hung-window/
-fIsWindowHung(iHwnd)
-  {
-  Return DllCall("IsHungAppWindow","Ptr",iHwnd)
-  }
+sLoadDlls := "psapi,ntdll"
+;fEmptyMem(),fWaitForHungWindow(),fShellHook(),fSetIOPriority()
+#Include <Functions>
 
-;waits for window to become unhung (with timeout)
-fWaitForHungWindow(iHwnd,iTimeOutMS := 15000)
-  {
-  iStartTime := A_TickCount
-  Loop
-    {
-    iIsHung := fIsWindowHung(iHwnd)
-    If !iIsHung || A_TickCount - iStartTime > %iTimeOutMS%
-      Break
-    Sleep 50
-    }
-  }
-
+;pid of script
+Global iScriptPID := DllCall("GetCurrentProcessId")
 ;get script filename
-SplitPath A_ScriptFullPath,,,,sName
+SplitPath A_ScriptName,,,,sName
 ;get settings filename
-sProg_Ini := A_ScriptDir "\" sName ".ini"
+sProgIni := A_ScriptDir "\" sName ".ini"
 
 ;missing settings
-If !FileExist(sProg_Ini)
+If !FileExist(sProgIni)
   {
-  sText := "[Settings]`r`n`r`n;Amount to push windows by`r`nPushAmount=1920`r`n`r`n;If this much of window is on centre monitor then ignore`r`nVisibleZone=50`r`n`r`n;Amount to remove from PushAmount when window is close to PushAmount`r`nCloseAmount=960`r`n`r`n;Don't reposition windows if primary monitor is a different width`r`nPrimaryWidth=5760`r`n`r`n;ms to wait for hung windows before continuing`r`nWaitTime=10000`r`n`r`n;Delay in ms before moving window`r`nDelay=0`r`n`r`n;List of programs to ignore (IgnoreList=Example.exe,Example Space.exe), not case sensitive`r`nIgnoreList=`r`n`r`n;List of window titles to ignore (IgnoreList=Complete Title,- Partial Title), case sensitive`r`nIgnoreListTitles=`r`n`r`n;Show system tray icon`r`nTrayIcon=0`r`n`r`n"
-  FileAppend %sText%,%sProg_Ini%
-  Run %sProg_Ini%
+  sText := "[Settings]`r`n`r`n;Amount to push windows by`r`nPushAmount=1920`r`n`r`n;If this much of window is on centre monitor then ignore`r`nVisibleZone=50`r`n`r`n;Amount to remove from PushAmount when window is close to PushAmount`r`nCloseAmount=960`r`n`r`n;Don't reposition windows if primary monitor is a different width`r`nPrimaryWidth=5760`r`n`r`n;ms to wait for hung windows before continuing`r`nWaitTime=10000`r`n`r`n;Delay in ms before moving window`r`nDelay=0`r`n`r`n;List of programs to ignore (IgnoreList=Example.exe,Example Space.exe), not case sensitive`r`nIgnoreList=`r`n`r`n;List of window titles to ignore (IgnoreList=Complete Title,- Partial Title), case sensitive`r`nIgnoreListTitles=`r`n`r`n;Show system tray icon`r`nTrayIcon=0`r`n"
+  FileAppend %sText%,%sProgIni%
+  Run %sProgIni%
   }
 ;read settings
-IniRead iPushAmount,%sProg_Ini%,Settings,PushAmount,1920
-IniRead iVisibleZone,%sProg_Ini%,Settings,VisibleZone,50
-IniRead iPrimaryWidth,%sProg_Ini%,Settings,PrimaryWidth,5760
-IniRead iCloseAmount,%sProg_Ini%,Settings,CloseAmount,960
-IniRead iWaitTime,%sProg_Ini%,Settings,WaitTime,10000
-IniRead iDelay,%sProg_Ini%,Settings,Delay,0
-IniRead sIgnoreListT,%sProg_Ini%,Settings,IgnoreList,%A_Space%
-IniRead sIgnoreListTitles,%sProg_Ini%,Settings,IgnoreListTitles,%A_Space%
+IniRead iPushAmount,%sProgIni%,Settings,PushAmount,1920
+IniRead iVisibleZone,%sProgIni%,Settings,VisibleZone,50
+IniRead iPrimaryWidth,%sProgIni%,Settings,PrimaryWidth,5760
+IniRead iCloseAmount,%sProgIni%,Settings,CloseAmount,960
+IniRead iWaitTime,%sProgIni%,Settings,WaitTime,10000
+IniRead iDelay,%sProgIni%,Settings,Delay,0
+IniRead sIgnoreListTmp,%sProgIni%,Settings,IgnoreList,%A_Space%
+IniRead sIgnoreListTitles,%sProgIni%,Settings,IgnoreListTitles,%A_Space%
 ;for stuff not to be included in release
-IniRead iChoGGi,%sProg_Ini%,Settings,ChoGGi,0
+IniRead iChoGGi,%sProgIni%,Settings,ChoGGi,0
 
 ;show tray menu?
-IniRead sTrayIcon,%sProg_Ini%,Settings,TrayIcon,True
-;If sTrayIcon = True || sTrayIcon = %True%
-;If sTrayIcon = True || sTrayIcon
+IniRead sTrayIcon,%sProgIni%,Settings,TrayIcon,True
 If sTrayIcon
   {
   ;remove default items
@@ -91,22 +78,36 @@ If sTrayIcon
   }
 
 ;build array for ignore list
-If sIgnoreListT
+If sIgnoreListTmp
   {
   oIgnoreList := {}
-  Loop Parse,sIgnoreListT,`,
+  Loop Parse,sIgnoreListTmp,`,
     oIgnoreList[(A_LoopField)] := 1
-  VarSetCapacity(sIgnoreListT,0)
+  VarSetCapacity(sIgnoreListTmp,0)
   }
 
 SetTitleMatchMode 2
 
 ;monitor new windows
-DllCall("RegisterShellHookWindow","UInt",A_ScriptHwnd)
-iMsgNum := DllCall("RegisterWindowMessage","Str","SHELLHOOK")
-OnMessage(iMsgNum,"fShellMessage")
+fShellHook("fShellMessage")
+
+;set script IO/page priority to very low
+fSetIOPriority(iScriptPID)
+fSetPagePriority(iScriptPID)
+
+SetTimer lEmptyMem,300000
+fEmptyMem(iScriptPID)
 
 ;end of init section
+Return
+
+lUnloadHook:
+  ;IniWrite 0,%sProgIni%,Settings,Running
+  fShellHook()
+ExitApp
+
+lEmptyMem:
+  fEmptyMem(iScriptPID)
 Return
 
 fShellMessage(iWinParam,iLParam)
@@ -119,9 +120,6 @@ fShellMessage(iWinParam,iLParam)
   If A_ScreenWidth != %iPrimaryWidth%
     Return
 
-  ;set last found win
-  WinWait ahk_id %iLParam%
-
   ;for misbehaving programs
   Sleep %iDelay%
 
@@ -131,50 +129,53 @@ fShellMessage(iWinParam,iLParam)
   fWaitForHungWindow(iLParam,iWaitTime)
 
   ;get window info
-  WinGet sProcName,ProcessName
-  WinGetTitle sWinTitle
-  WinGetPos iWinXPos,,iWinWidth,iWinHeight
+  WinGet sProcName,ProcessName,ahk_id %iLParam%
+  WinGetTitle sWinTitle,ahk_id %iLParam%
+  WinGetPos iWinXPos,,iWinWidth,iWinHeight,ahk_id %iLParam%
 
   ;ignore anything already positioned over PushAmount
   If iWinXPos > %iPushAmount%
     Return
   ;if the amount shown on primary is less then VisibleZone ignore
-  Else If !(iWinWidth - (iPushAmount - iWinXPos) < iVisibleZone)
+  If !(iWinWidth - (iPushAmount - iWinXPos) < iVisibleZone)
     Return
 
   ;ignore (borderless) fullscreen windows
-  Else If (A_ScreenWidth = iWinWidth - 16 || A_ScreenWidth = iWinWidth)
+  If (A_ScreenWidth = iWinWidth - 16 || A_ScreenWidth = iWinWidth)
   && (A_ScreenHeight = iWinHeight - 16 || A_ScreenHeight = iWinHeight)
     Return
 
   ;check ignore list
-  Else If oIgnoreList[sProcName]
+  If oIgnoreList[sProcName]
     Return
   ;loop through sIgnoreListTitles for TitleMatchMode 2
-  Else If sIgnoreListTitles
+  If (sIgnoreListTitles && InStr(sIgnoreListTitles,sWinTitle,1))
+    Return
+  /*
     {
     Loop Parse,sIgnoreListTitles,`,
       {
-      ;case sensitive
+      case sensitive
       If InStr(sWinTitle,A_LoopField,1)
         Return
       }
     }
-
+  */
   ;move the window (dependant on how close it is to the centre monitor)
-  If iWinXPos > %iCloseAmount%
-    iWinXPos := iWinXPos + iPushAmount - iCloseAmount
-  Else
-    iWinXPos := iWinXPos + iPushAmount
-  WinMove %iWinXPos%
+  iWinXPos := (iWinXPos > iCloseAmount ? iWinXPos + iPushAmount - iCloseAmount
+            : iWinXPos + iPushAmount)
+  WinMove ahk_id %iLParam%,,%iWinXPos%
 
   ;close DWM "switch to 2d mode msg" msg
-  If iChoGGi && WinExist("Windows ahk_exe dwm.exe")
+  If (iChoGGi && WinExist("Windows ahk_exe dwm.exe"))
     {
-    WinActivate
-    WinWaitActive
+    WinActivate ahk_id %iLParam%
+    WinWaitActive ahk_id %iLParam%,,5
     ControlClick Button3
     }
+
+  ;free some mem
+  fEmptyMem(iScriptPID)
   }
 
 lListVars:
@@ -182,11 +183,11 @@ lListVars:
 Return
 
 lSettings:
-  Run %sProg_Ini%
+  Run %sProgIni%
 Return
 
 lHideTray:
-  IniWrite False,%sProg_Ini%,Settings,TrayIcon
+  IniWrite False,%sProgIni%,Settings,TrayIcon
   Menu Tray,NoIcon
 Return
 

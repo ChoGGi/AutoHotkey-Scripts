@@ -1,37 +1,37 @@
-Global sProg_Ini,sProg_Dir
+Global sProgIni,sProgDir
 
-SplitPath A_ScriptFullPath,,,,sProg_Name
-sProg_Ini := A_ScriptDir "\" sProg_Name ".ini"
-IniRead sProg_Dir,%sProg_Ini%,Settings,Prog_Dir
+SplitPath A_ScriptFullPath,,,,sProgName
+sProgIni := A_ScriptDir "\" sProgName ".ini"
+IniRead sProgDir,%sProgIni%,Settings,Prog_Dir
 
-If !FileExist(sProg_Dir sProg_Exe)
+If !FileExist(sProgDir sProgExe)
   {
-  If FileExist(A_ScriptDir sProg_Exe)
+  If FileExist(A_ScriptDir sProgExe)
     {
-    sProg_Ini := A_ScriptDir "\" sProg_Name ".ini"
+    sProgIni := A_ScriptDir "\" sProgName ".ini"
     fSetInstallPath(A_ScriptDir)
     }
-  Else If FileExist(A_WorkingDir sProg_Exe)
+  Else If FileExist(A_WorkingDir sProgExe)
     {
-    sProg_Ini := A_WorkingDir "\" sProg_Name ".ini"
+    sProgIni := A_WorkingDir "\" sProgName ".ini"
     fSetInstallPath(A_WorkingDir)
     }
-  Else If FileExist(A_ProgramFiles "\" sProg_Name sProg_Exe)
+  Else If FileExist(A_ProgramFiles "\" sProgName sProgExe)
     {
-    sProg_Ini := A_ProgramFiles "\" sProg_Name "\" sProg_Name ".ini"
-    fSetInstallPath(A_ProgramFiles "\" sProg_Name)
+    sProgIni := A_ProgramFiles "\" sProgName "\" sProgName ".ini"
+    fSetInstallPath(A_ProgramFiles "\" sProgName)
     }
   Else
     {
     Loop
       {
-      FileSelectFolder sProg_Dir,*%A_ScriptDir%,3,Please select %sProg_Name% directory`n(Eg: %A_ProgramFiles%\%sProg_Name%)
+      FileSelectFolder sProgDir,*%A_ScriptDir%,3,Please select %sProgName% directory`n(Eg: %A_ProgramFiles%\%sProgName%)
       If ErrorLevel
         ExitApp
-      If FileExist(sProg_Dir sProg_Exe)
+      If FileExist(sProgDir sProgExe)
         {
-        sProg_Ini := sProg_Dir "\" sProg_Name ".ini"
-        fSetInstallPath(sProg_Dir)
+        sProgIni := sProgDir "\" sProgName ".ini"
+        fSetInstallPath(sProgDir)
         Break
         }
       }
@@ -40,6 +40,6 @@ If !FileExist(sProg_Dir sProg_Exe)
 
 fSetInstallPath(sPath)
   {
-  IniWrite %sPath%,%sProg_Ini%,Settings,Prog_Dir
-  sProg_Dir := sPath
+  IniWrite %sPath%,%sProgIni%,Settings,Prog_Dir
+  sProgDir := sPath
   }

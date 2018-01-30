@@ -1,16 +1,20 @@
 /*
-Sets Priority, IO Priority, and Affinity (also has run/kill list)
+Sets Priority, IO Priority, Page Priority, and Affinity (also has run/kill list)
 Loops through process list every *Delay*
-also checks list on window created
+also checks list when new processes created
 
-ProcessChanger.exe "Process name" will return the affinity mask
+ProcessChanger.exe "Process name.exe" will show the affinity mask (or use " | more" to view it in console)
 (you can set affinity in taskmgr)
 
 Requires:
-https://github.com/ChoGGi/AutoHotkey-Scripts/blob/master/Lib/Processes.ahk
+https://github.com/ChoGGi/AutoHotkey-Scripts/blob/master/Lib/Functions.ahk
 
 Settings file created on first run
 
+v0.03
+Code cleanup
+Ability to pipe process affinity mask to console
+Added list option for set Page Priority
 v0.02
 Added list option for IO priority (IOPriorityList)
 Changed ProcessList to PriorityList
@@ -30,55 +34,68 @@ ListLines Off
 AutoTrim Off
 Process Priority,,L
 SetWinDelay -1
+OnExit lExitApp
 
-;fEnumProcesses(),fSeDebugPrivilege(),fSetIOPriority(),fEmptyMem(),fAffinitySet()
-sLoadDlls := "wtsapi32:advapi32:ntdll" ;skip psapi (fEmptyMem() dll)
-;sLoadDlls := "wtsapi32:advapi32:ntdll:psapi"
-#Include <Processes>
+;fEnumProcesses(),fSeDebugPrivilege(),fSetIOPriority(),fEmptyMem(),fAffinitySet(),fAffinityGet(),fShellHook()
+sLoadDlls := "wtsapi32,advapi32,ntdll,psapi"
+#Include <Functions>
+
+;pid of script
+Global iScriptPID := DllCall("GetCurrentProcessId")
+;get script filename
+SplitPath A_ScriptName,,,,sName
+;get settings filename
+sProgIni := A_ScriptDir "\" sName ".ini"
 
 ;user wants an affinity mask
-If A_Args.Length()
+If A_Args[1]
   {
+  Integer := "Integer"
+  SetFormat Integer,Hex
   For iIndex,sInputFile in A_Args
-    fGetAffMask(sInputFile)
+    {
+    sProcAff := fAffinityGet(sInputFile)
+    sProcAff := StrReplace(sProcAff,"0x")
+    FileAppend %sProcAff%,*
+    InputBox sTempVar,%sInputFile% Affinity Mask:,,,300,100,,,,,%sProcAff%
+    }
+  ExitApp
+  }
+;check and remove any extra running copies
+Else
+  {
+  oProcList := fEnumProcesses(1)
+  For iPID,sProcName in oProcList
+    {
+    If (sProcName = sName ".exe" && iPID != iScriptPID)
+      Process Close,% iPID
+    }
   }
 
-;make some vars global
-Global oPriorityList,oIOPriorityList,oAffinityList
-      ,oAffinityListCustom,sDefaultAffinity,oKillList
+;make global var
+Global sDefaultAffinity,oPriorityList,oIOPriorityList,oAffinityListCustom
+  ,oAffinityList,oKillList,oPagePriorityList
 
-;pid of script so we can ignore below
-Global iScript_PID := DllCall("GetCurrentProcessId")
-
-;set script IO to very low
-fSetIOPriority(iScript_PID)
-
-;so we can fiddle with service processes
-fSeDebugPrivilege()
-
-;get script filename
-SplitPath A_ScriptFullPath,,,,sName
-;get settings filename
-sProg_Ini := A_ScriptDir "\" sName ".ini"
 ;missing settings
-If !FileExist(sProg_Ini)
+If !FileExist(sProgIni)
   {
-  sText := "[Settings]`r`n;L=Low B=BelowNormal N=Normal A=AboveNormal H=High R=Realtime`r`n;Ex: (ExampleProgram.exe:L,Example2 Program.exe:BelowNormal)`r`nPriorityList=`r`n`r`n;0=very low 1=low 2=normal`r`n;Ex: (ExampleProgram.exe:0,Example2 Program.exe:2)`r`nIOPriorityList=`r`n`r`n;Sets affinity of these processes to *DefaultAffinity*`r`n;Ex: (ExampleProgram.exe,Example2 Program.exe)`r`nAffinityList=`r`n;Default is last four cores (c00=last 2,fc0=last 6)`r`n;You can use ProcessChanger.exe 'Process name' to get affinity mask (you can set affinity in taskmgr)`r`nDefaultAffinity=f00`r`n`r`n;Set custom affinity`r`n;Ex: (ExampleProgram.exe:0fff,Example2 Program.exe:003f)`r`nAffinityListCustom=`r`n`r`n;If these programs aren't running then start them`r`n;Ex: (ExampleProgram.exe|C:\Program Files\Example,Example2 Program.exe|C:\Utils)`r`nRunList=`r`n`r`n;If these programs are running then kill them`r`n;Ex: (ExampleProgram.exe,Example2 Program.exe)`r`nKillList=`r`n`r`n;Time to check process list (default:5 mins)`r`n;Also checks every time new window opened`r`nDelay=300000`r`n`r`n;Show system tray icon (only checked on startup)`r`nTrayIcon=True`r`n"
-  FileAppend %sText%,%sProg_Ini%
-  Run %sProg_Ini%
+  sText := "[Settings]`r`n;WARNING: Parent processes will pass settings onto their children (if you make explorer low, anything started by explorer will also be low)`r`n`r`n;Set priority (CPU usage: Prioritise CPU time for processes, be very careful using Realtime)`r`n;L=Low B=BelowNormal N=Normal A=AboveNormal H=High R=Realtime`r`n;PriorityList=ExampleProgram.exe|L,Example2 Program.exe|BelowNormal`r`nPriorityList=`r`n`r`n;Set io priority (Disk usage: Lower is good for background tasks that churn disk; downloaders/music players/so on)`r`n;0=Very low 1=Low 2=Normal (3=High: not working for now)`r`n;IOPriorityList=ExampleProgram.exe|0,Example2 Program.exe|)`r`nIOPriorityList=`r`n`r`n;Set page priority (Memory usage: Lower means more likely removed from working set if needed)`r`n;1=Very low 2=Low 3=Medium 4=Below normal 5=Normal`r`n;PagePriorityList=ExampleProgram.exe|1,Example2 Program.exe|5`r`nPagePriorityList=`r`n`r`n;Set affinity of these processes to *DefaultAffinity* (CPU core usage, Max amount of cores allowed to be used by process)`r`n;AffinityList=ExampleProgram.exe,Example2 Program.exe`r`nAffinityList=`r`n;Default is last four cores (c00=last 2,fc0=last 6)`r`n;" sName ".exe 'Example Program.exe' (show the affinity mask)`r`n;You can set affinity in taskmgr`r`nDefaultAffinity=f00`r`n`r`n;Set custom affinity for certain processes (fff = all cores)`r`n;AffinityListCustom=ExampleProgram.exe|fff,Example2 Program.exe|3f`r`nAffinityListCustom=`r`n`r`n;If these programs aren't running then start them`r`n;RunList=ExampleProgram.exe|C:\Program Files\Example,Example2 Program.exe|C:\Utils`r`nRunList=`r`n`r`n;If these programs are running then kill them`r`n;KillList=ExampleProgram.exe,Example2 Program.exe`r`nKillList=`r`n`r`n;Time to check process list (default is 5 mins)`r`n;Also checks every time new process started`r`nDelay=300000`r`n`r`n;Show system tray icon (only checked on startup)`r`nTrayIcon=True`r`n"
+  FileAppend %sText%,%sProgIni%
+  Run %sProgIni%
   }
 ;read settings
 GoSub lReadSettings
 
 ;get ini filetime
-FileGetTime iFileTime,%sProg_Ini%
+FileGetTime iFileTime,%sProgIni%
 
 ;for stuff not to be included in release
-IniRead iChoGGi,%sProg_Ini%,Settings,ChoGGi,0
+IniRead iChoGGi,%sProgIni%,Settings,ChoGGi,0
 
 ;show tray menu?
-IniRead sTrayIcon,%sProg_Ini%,Settings,TrayIcon,True
-If sTrayIcon = True || sTrayIcon = %True%
+IniRead sTrayIcon,%sProgIni%,Settings,TrayIcon,True
+;If sTrayIcon = True || sTrayIcon = %True%
+If sTrayIcon in True,1
   {
   ;remove default items
   Menu Tray,NoStandard
@@ -95,16 +112,36 @@ If sTrayIcon = True || sTrayIcon = %True%
   Menu Tray,Icon
   }
 
-;monitor new windows
-DllCall("RegisterShellHookWindow","UInt",A_ScriptHwnd)
-iMsgNum := DllCall("RegisterWindowMessage","Str","SHELLHOOK")
-OnMessage(iMsgNum,"fShellMessage")
+;maybe works for hidden windows?
+;EVENT_OBJECT_CREATE
+;hWinEventHook := fSetWinEventHook(,0x8000,0x8000,,"fWinProcCallback")
+
+;set script IO/page priority to very low
+fSetIOPriority(iScriptPID)
+fSetPagePriority(iScriptPID)
+
+fEmptyMem(iScriptPID)
+
+;so we can fiddle with service processes
+fSeDebugPrivilege()
+
+;monitor new processes (RegisterShellHookWindow doesn't get all processes)
+;https://autohotkey.com/board/topic/56984-new-process-notifier/
+;Get WMI service object.
+oWinMgmts := ComObjGet("winmgmts:")
+;Create sink objects for receiving event noficiations.
+ComObjConnect(createSink := ComObjCreate("WbemScripting.SWbemSink"), "ProcessCreate_")
+;Register for process creation notifications:
+oWinMgmts.ExecNotificationQueryAsync(createSink
+  , "Select * from __InstanceCreationEvent"
+  . " within " 1
+  . " where TargetInstance ISA 'Win32_Process'")
 
 ;fires every %iDelay%
 Loop
   {
   ;check if ini changed
-  FileGetTime iFileTimeLoop,%sProg_Ini%
+  FileGetTime iFileTimeLoop,%sProgIni%
   If iFileTimeLoop != %iFileTime%
     {
     ;update iFileTime with new time
@@ -114,109 +151,81 @@ Loop
     }
 
   ;get list of processes
-  sProcList := fEnumProcesses()
+  oProcList := fEnumProcesses(1)
   ;loop em
-  Loop Parse,sProcList,|
+  For iPID,sProcName in oProcList
     {
-    oProcListArray := StrSplit(A_LoopField,":")
-
     ;set process priority
-    If oPriorityList[oProcListArray[2]]
-      Process Priority,% oProcListArray[1],% oPriorityList[oProcListArray[2]]
+    If oPriorityList[sProcName]
+      Process Priority,%iPID%,% oPriorityList[sProcName]
 
-    ;set process IO priority (it's either 0,1,2 so we need to use > -1)
-    If oIOPriorityList[oProcListArray[2]] > -1
-      fSetIOPriority(oProcListArray[1],oIOPriorityList[oProcListArray[2]])
+    ;set process IO priority (it's either -1,0,1,2,3 so we need to use > -2)
+    If oIOPriorityList[sProcName] > -2
+      fSetIOPriority(iPID,oIOPriorityList[sProcName])
 
-    ;set default process affinity
-    If oAffinityList[oProcListArray[2]]
-      fAffinitySet(sDefaultAffinity,oProcListArray[1])
+    ;set process Page priority (1-5)
+    If oPagePriorityList[sProcName]
+      fSetPagePriority(iPID,oPagePriorityList[sProcName])
+
+    ;set default process affinity (0-fff)
+    If oAffinityList[sProcName]
+      fAffinitySet(iPID,sDefaultAffinity)
 
     ;set process affinity (custom)
-    If oAffinityListCustom[oProcListArray[2]]
-      fAffinitySet(oAffinityListCustom[oProcListArray[2]],oProcListArray[1])
+    If oAffinityListCustom[sProcName]
+      fAffinitySet(iPID,oAffinityListCustom[sProcName])
 
     ;kill process
-    If oKillList[oProcListArray[2]]
-      Process Close,% oProcListArray[1]
+    If oKillList[sProcName]
+      Process Close,%iPID%
     }
 
-  ;parse run list
-  Loop Parse,sRunList,`,
+  ;loop run list
+  For sProcName,sPath in oRunList
     {
-    oTempArray := StrSplit(A_LoopField,"|")
-    Process Exist,% oTempArray[1]
+    Process Exist,%sProcName%
     If !ErrorLevel
-      Run % oTempArray[2] "\" oTempArray[1],% oTempArray[1],UseErrorLevel
+      Run %sPath%\%sProcName%,%sPath%,UseErrorLevel
     }
 
-  ;blank some vars
-  VarSetCapacity(sProcList,0)
-  VarSetCapacity(oProcListArray,0)
-  VarSetCapacity(oTempArray,0)
-  ;free some mem (uncomment psapi above to use)
-  ;fEmptyMem(iScript_PID)
+  ;free some mem
+  fEmptyMem(iScriptPID)
+
   ;loop delay
   Sleep %iDelay%
   }
+
 ;end of init section
+
+lExitApp:
+  ;IniWrite 0,%sProgIni%,Settings,Running
 ExitApp
 
-fGetAffMask(sInputFile)
+;fShellMessage(iWinParam,iLParam)
+ProcessCreate_OnObjectReady(obj)
   {
-  SetFormat Integer,Hex
-  sProcAff := fAffinityGet(sInputFile)
-  sProcAff := StrReplace(sProcAff,"0x")
-
-  FileAppend %sInputFile%:%sProcAff%,*
-  InputBox sTempVar,%sInputFile% Affinity Mask:,,,300,100,,,,,%sProcAff%
-  ExitApp
-  }
-
-fShellMessage(iWinParam,iLParam)
-  {
-  ;we only want created windows (HSHELL_WINDOWCREATED = 1)
-  If iWinParam != 1
-    Return
-
-  ;blank titles
-  WinGetTitle sWinTitle,ahk_id %iLParam%
-  ;skip script exe
-  WinGet iWinPID,PID,ahk_id %iLParam%
-  If !sWinTitle || iWinPID = %iScript_PID%
-    Return
-
-  ;get process name
-  WinGet sProcName,ProcessName,ahk_id %iLParam%
+  ;sProcName := obj.TargetInstance.Name
+  ;iWinPID := obj.TargetInstance.ProcessID
 
   ;set process priority
-  If oPriorityList[sProcName]
-    {
-    Process Priority,%iWinPID%,% oPriorityList[sProcName]
-    ;WORKAROUND:
-    ;VBoxSVC doesn't have a detectable window, and you can't change opened
-    ;VirtualBox.exe after vm has started (added in v5something)
-    If sProcName = VirtualBox.exe
-      Process Priority,VBoxSVC.exe,L
-    }
+  If oPriorityList[obj.TargetInstance.Name]
+    Process Priority,% obj.TargetInstance.ProcessID,% oPriorityList[obj.TargetInstance.Name]
 
   ;set process IO priority
-  If oIOPriorityList[sProcName] > -1
-    {
-    fSetIOPriority(iWinPID,oIOPriorityList[sProcName])
-    ;WORKAROUND (see above):
-    If sProcName = VirtualBox.exe
-      fSetIOPriority("VBoxSVC",oIOPriorityList["VBoxSVC.exe"])
-    }
+  If oIOPriorityList[obj.TargetInstance.Name] > -2
+    fSetIOPriority(obj.TargetInstance.ProcessID,oIOPriorityList[obj.TargetInstance.Name])
+
+  ;set process Page priority
+  If oPagePriorityList[obj.TargetInstance.Name]
+    fSetPagePriority(obj.TargetInstance.ProcessID,oPagePriorityList[obj.TargetInstance.Name])
 
   ;set process affinity (to last 4 cores, technically 2 with HT)
-  If oAffinityList[sProcName]
-    fAffinitySet(sDefaultAffinity,iWinPID)
+  If oAffinityList[obj.TargetInstance.Name]
+    fAffinitySet(obj.TargetInstance.ProcessID,sDefaultAffinity)
 
   ;set process affinity (custom)
-  If oAffinityListCustom[sProcName]
-    fAffinitySet(oAffinityListCustom[sProcName],iWinPID)
-
+  If oAffinityListCustom[obj.TargetInstance.Name]
+    fAffinitySet(obj.TargetInstance.ProcessID,oAffinityListCustom[obj.TargetInstance.Name])
   }
 
 lListVars:
@@ -224,11 +233,11 @@ lListVars:
 Return
 
 lSettings:
-  Run %sProg_Ini%
+  Run %sProgIni%
 Return
 
 lHideTray:
-  IniWrite False,%sProg_Ini%,Settings,TrayIcon
+  IniWrite False,%sProgIni%,Settings,TrayIcon
   Menu Tray,NoIcon
 Return
 
@@ -241,44 +250,38 @@ lExit:
 Return
 
 lReadSettings:
-  IniRead sPriorityListT,%sProg_Ini%,Settings,PriorityList,0
-  IniRead sIOPriorityListT,%sProg_Ini%,Settings,IOPriorityList,0
-  IniRead sAffinityListT,%sProg_Ini%,Settings,AffinityList,0
-  IniRead sAffinityListCustomT,%sProg_Ini%,Settings,AffinityListCustom,0
-  IniRead sKillListT,%sProg_Ini%,Settings,KillList,0
-  IniRead sRunList,%sProg_Ini%,Settings,RunList,0
-  IniRead sDefaultAffinity,%sProg_Ini%,Settings,DefaultAffinity,0f00
-  IniRead iDelay,%sProg_Ini%,Settings,Delay,300000
+  IniRead oPriorityList,%sProgIni%,Settings,PriorityList,0
+  IniRead oIOPriorityList,%sProgIni%,Settings,IOPriorityList,0
+  IniRead oPagePriorityList,%sProgIni%,Settings,PagePriorityList,0
+  IniRead oAffinityList,%sProgIni%,Settings,AffinityList,0
+  IniRead oAffinityListCustom,%sProgIni%,Settings,AffinityListCustom,0
+  IniRead oKillList,%sProgIni%,Settings,KillList,0
+  IniRead oRunList,%sProgIni%,Settings,RunList,0
+  IniRead sDefaultAffinity,%sProgIni%,Settings,DefaultAffinity,0f00
+  IniRead iDelay,%sProgIni%,Settings,Delay,300000
 
-  ;create associative arrays instead of using parsing loops
-  fCreateList("oPriorityList",sPriorityListT)
-  fCreateList("oIOPriorityList",sIOPriorityListT)
-  fCreateList("oAffinityListCustom",sAffinityListCustomT)
-  fCreateListSimple("oAffinityList",sAffinityListT)
-  fCreateListSimple("oKillList",sKillListT)
-
-  ;blank some vars
-  VarSetCapacity(oTempArray,0)
-  VarSetCapacity(sPriorityListT,0)
-  VarSetCapacity(sIOPriorityListT,0)
-  VarSetCapacity(sAffinityListT,0)
-  VarSetCapacity(sAffinityListCustomT,0)
-  VarSetCapacity(sKillListT,0)
+  ;create associative arrays
+  fCreateList("oPriorityList",oPriorityList)
+  fCreateList("oIOPriorityList",oIOPriorityList)
+  fCreateList("oPagePriorityList",oPagePriorityList)
+  fCreateList("oAffinityListCustom",oAffinityListCustom)
+  fCreateList("oAffinityList",oAffinityList,0)
+  fCreateList("oKillList",oKillList,0)
+  fCreateList("oRunList",oRunList)
 Return
 
-fCreateList(oList,sList)
+fCreateList(oList,sList,bWhich := 1)
   {
   %oList% := {}
-  Loop Parse,sList,`,
-    {
-    oTempArray := StrSplit(A_LoopField,":")
-    %oList%[(oTempArray[1])] := oTempArray[2]
-    }
-  }
 
-fCreateListSimple(oList,sList)
-  {
-  %oList% := {}
+  If bWhich
+    {
+    Loop Parse,sList,`,
+      oTmpArray := StrSplit(A_LoopField,"|")
+        ,%oList%[(Trim(oTmpArray[1]))] := Trim(oTmpArray[2])
+    Return
+    }
+
   Loop Parse,sList,`,
-    %oList%[(A_LoopField)] := 1
+    %oList%[(Trim(A_LoopField))] := 1
   }

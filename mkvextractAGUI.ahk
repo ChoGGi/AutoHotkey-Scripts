@@ -1,15 +1,22 @@
 /*
-A simple GUI for extracting tracks from MKVs
+A simple GUI for extracting files from MKVs
 Using MKVToolNix (mkvextract/mkvmerge)
 https://mkvtoolnix.download
 
 mkvextractAGUI Example.mkv
 
+Settings file created on first run
+
 Requires:
+https://github.com/ChoGGi/AutoHotkey-Scripts/blob/master/Lib/StdOutToVar.ahk
+https://github.com/ChoGGi/AutoHotkey-Scripts/blob/master/Lib/JXON.ahk
+https://github.com/ChoGGi/AutoHotkey-Scripts/blob/master/Lib/SetPath.ahk
+Links to originals:
 https://github.com/cocobelgica/AutoHotkey-JSON/blob/master/Jxon.ahk (1560aaa on 6 Apr 2016)
 https://github.com/cocobelgica/AutoHotkey-Util/blob/master/StdOutToVar.ahk (3541fbe on 25 Aug 2014)
-https://github.com/ChoGGi/AutoHotkey-Scripts/blob/master/Lib/SetPath.ahk
 
+v0.02
+Code cleanup
 v0.01
 Initial Release
 */
@@ -23,18 +30,20 @@ ListLines Off
 AutoTrim Off
 SetWinDelay -1
 
+;Jxon_Load()
 #Include <JXON>
+;StdOutToVar()
 #Include <StdOutToVar>
 
-Global Jxon_Load,StdOutToVar,sProg_Ini,sProg_Dir,sProg_Exe,sProg_Name,TitleName
+Global sProgIni,sProgDir,sProgExe,sProgName,TitleName
       ,ExtractTracks,OverWriteFiles,OutputDir,OutExt,OutputName,BatchFile
       ,TrackListing,ExtractToMKA,ExitAfter,Merge_Exe
 
-sProg_Exe := "\mkvextract.exe"
+sProgExe := "\mkvextract.exe"
 Merge_Exe := "\mkvmerge.exe"
 #Include <SetPath>
 
-If A_Args.Length()
+If A_Args[1]
   sInFile := A_Args[1]
 Else
   {
@@ -43,10 +52,10 @@ Else
     ExitApp
   }
 
-IniRead ExtractToMKA,%sProg_Ini%,Settings,ExtractToMKA,0
-IniRead OverWriteFiles,%sProg_Ini%,Settings,OverWriteFiles,1
-IniRead ExitAfter,%sProg_Ini%,Settings,ExitAfter,1
-IniRead sWinPos,%sProg_Ini%,Settings,WinPos,0:0
+IniRead ExtractToMKA,%sProgIni%,Settings,ExtractToMKA,0
+IniRead OverWriteFiles,%sProgIni%,Settings,OverWriteFiles,1
+IniRead ExitAfter,%sProgIni%,Settings,ExitAfter,1
+IniRead sWinPos,%sProgIni%,Settings,WinPos,0:0
 sArray := StrSplit(sWinPos,":")
 iXPos := sArray[1]
 iYPos := sArray[2]
@@ -55,8 +64,8 @@ If iYPos > %A_ScreenHeight%
   iYPos := A_ScreenHeight // 3
 If iXPos > %A_ScreenWidth%
   iXPos := A_ScreenWidth // 3
-IniRead GuiHeight,%sProg_Ini%,Settings,Height,400
-IniRead GuiWidth,%sProg_Ini%,Settings,Width,680
+IniRead GuiHeight,%sProgIni%,Settings,Height,400
+IniRead GuiWidth,%sProgIni%,Settings,Width,680
 
 Gui +ToolWindow +LastFound +AlwaysOnTop +Resize +OwnDialogs
 Gui Margin,10,5
@@ -77,7 +86,7 @@ LV_ModifyCol(2,50)
 LV_ModifyCol(3,125)
 LV_ModifyCol(4,430)
 
-Gui Show,x%iXPos% y%iYPos%,%sProg_Name%: %TitleName%
+Gui Show,x%iXPos% y%iYPos%,%sProgName%: %TitleName%
 GuiControl Text,InfoText,Choose tracks to extract:
 GuiControl Move,InfoText,W300
 
@@ -103,10 +112,10 @@ GuiControl,,ExtractToMKA,%ExtractToMKA%
 GuiControl,,OverWriteFiles,%OverWriteFiles%
 GuiControl,,ExitAfter,%ExitAfter%
 
-Gui Show,x%iXPos% y%iYPos% w%GuiWidth% h%GuiHeight%,%sProg_Name%: %TitleName%
+Gui Show,x%iXPos% y%iYPos% w%GuiWidth% h%GuiHeight%,%sProgName%: %TitleName%
 
 ;for tooltips
-OnMessage(0x200,"WM_MOUSEMOVE")
+OnMessage(0x200,"fWM_MOUSEMOVE")
 Return
 
 GuiSize:
@@ -137,7 +146,7 @@ GuiSize:
 Return
 
 GuiDropFiles:
-  If A_GuiControl = BatchFile || A_GuiControl = BatchFileDrop
+  If (A_GuiControl = "BatchFile" || A_GuiControl = "BatchFileDrop")
     GoSub BatchFileDrop
   Else If A_GuiControl = TrackList
     {
@@ -159,8 +168,8 @@ Return
 
 GuiClose:
 GuiEscape:
-  iScript_PID := DllCall("GetCurrentProcessId")
-  WinGetPos iXPosT,iYPosT,GuiWidth,GuiHeight,ahk_pid %iScript_PID%
+  iScriptPID := DllCall("GetCurrentProcessId")
+  WinGetPos iXPosT,iYPosT,GuiWidth,GuiHeight,ahk_pid %iScriptPID%
   If iXPosT
     iXPos := iXPosT
   If iYPosT
@@ -169,13 +178,13 @@ GuiEscape:
   GuiControlGet OverWriteFiles
   GuiControlGet ExitAfter
 
-  IniWrite %ExtractToMKA%,%sProg_Ini%,Settings,ExtractToMKA
-  IniWrite %OverWriteFiles%,%sProg_Ini%,Settings,OverWriteFiles
-  IniWrite %ExitAfter%,%sProg_Ini%,Settings,ExitAfter
+  IniWrite %ExtractToMKA%,%sProgIni%,Settings,ExtractToMKA
+  IniWrite %OverWriteFiles%,%sProgIni%,Settings,OverWriteFiles
+  IniWrite %ExitAfter%,%sProgIni%,Settings,ExitAfter
   sWinPos := iXPos ":" iYPos
-  IniWrite %sWinPos%,%sProg_Ini%,Settings,WinPos
-  ;IniWrite %GuiWidth%,%sProg_Ini%,Settings,Width
-  ;IniWrite %GuiHeight%,%sProg_Ini%,Settings,Height
+  IniWrite %sWinPos%,%sProgIni%,Settings,WinPos
+  ;IniWrite %GuiWidth%,%sProgIni%,Settings,Width
+  ;IniWrite %GuiHeight%,%sProgIni%,Settings,Height
 ExitApp
 
 ToggleSelectList:
@@ -268,10 +277,10 @@ ExtractFiles()
 
   If ExtractToMKA
     {
-    If !OverWriteFiles && FileExist(OutputDir "\" OutputName ".mka")
-      ExtractTracks := sProg_Dir Merge_Exe " --output " """" OutputDir "\" OutputName "-" A_TickCount ".mka"""
+    If (!OverWriteFiles && FileExist(OutputDir "\" OutputName ".mka"))
+      ExtractTracks := sProgDir Merge_Exe " --output " """" OutputDir "\" OutputName "-" A_TickCount ".mka"""
     Else
-      ExtractTracks := sProg_Dir Merge_Exe " --output " """" OutputDir "\" OutputName ".mka"""
+      ExtractTracks := sProgDir Merge_Exe " --output " """" OutputDir "\" OutputName ".mka"""
     ;reset some vars
     VideoT_Index := ""
     AudioT_Index := ""
@@ -281,7 +290,7 @@ ExtractFiles()
     SubtitlesT := 0
     }
   Else
-    ExtractTracks := sProg_Dir sProg_Exe " tracks " """" OutputDir "\" OutputName "." OutExt """"
+    ExtractTracks := sProgDir sProgExe " tracks " """" OutputDir "\" OutputName "." OutExt """"
   ;I'm lazy so we're sorting by track column
   LV_ModifyCol(1,"Sort")
 
@@ -319,51 +328,31 @@ ExtractFiles()
       Else
         {
         ;name extensions of common subtitle tracks
-        If InStr(TrackListing[A_Index][3],"VobSub")
-          ExtractTracks .= BuildTrack(Index,"idx")
-        Else If InStr(TrackListing[A_Index][3],"SubRip/SRT")
-          ExtractTracks .= BuildTrack(Index,"srt")
-        Else If InStr(TrackListing[A_Index][3],"HDMV PGS")
-          ExtractTracks .= BuildTrack(Index,"pgs.sup")
-        Else If InStr(TrackListing[A_Index][3],"SubStationAlpha")
-          ExtractTracks .= BuildTrack(Index,"ass")
+        ExtractTracks .= (InStr(TrackListing[A_Index][3],"VobSub") ? BuildTrack(Index,"idx")
+        : InStr(TrackListing[A_Index][3],"SubRip/SRT") ? BuildTrack(Index,"srt")
+        : InStr(TrackListing[A_Index][3],"HDMV PGS") ? BuildTrack(Index,"pgs.sup")
+        : InStr(TrackListing[A_Index][3],"SubStationAlpha") ? BuildTrack(Index,"ass")
         ;audio
-        Else If InStr(TrackListing[A_Index][3],"AC-3")
-          ExtractTracks .= BuildTrack(Index,"ac3")
-        Else If InStr(TrackListing[A_Index][3],"AAC")
-          ExtractTracks .= BuildTrack(Index,"aac")
-        Else If InStr(TrackListing[A_Index][3],"MP3")
-          ExtractTracks .= BuildTrack(Index,"mp3")
-        Else If InStr(TrackListing[A_Index][3],"Vorbis")
-          ExtractTracks .= BuildTrack(Index,"ogg")
-        Else If InStr(TrackListing[A_Index][3],"Opus")
-          ExtractTracks .= BuildTrack(Index,"opus")
-        Else If InStr(TrackListing[A_Index][3],"FLAC")
-          ExtractTracks .= BuildTrack(Index,"flac")
-        Else If InStr(TrackListing[A_Index][3],"DTS")
-          ExtractTracks .= BuildTrack(Index,"dts")
-        Else If InStr(TrackListing[A_Index][3],"PCM")
-          ExtractTracks .= BuildTrack(Index,"wav")
+        : InStr(TrackListing[A_Index][3],"AC-3") ? BuildTrack(Index,"ac3")
+        : InStr(TrackListing[A_Index][3],"AAC") ? BuildTrack(Index,"aac")
+        : InStr(TrackListing[A_Index][3],"MP3") ? BuildTrack(Index,"mp3")
+        : InStr(TrackListing[A_Index][3],"Vorbis") ? BuildTrack(Index,"ogg")
+        : InStr(TrackListing[A_Index][3],"Opus") ? BuildTrack(Index,"opus")
+        : InStr(TrackListing[A_Index][3],"FLAC") ? BuildTrack(Index,"flac")
+        : InStr(TrackListing[A_Index][3],"DTS") ? BuildTrack(Index,"dts")
+        : InStr(TrackListing[A_Index][3],"TrueHD") ? BuildTrack(Index,"truehd")
+        : InStr(TrackListing[A_Index][3],"PCM") ? BuildTrack(Index,"wav")
         ;video
-        Else If InStr(TrackListing[A_Index][3],"HEVC")
-          ExtractTracks .= BuildTrack(Index,"hevc")
-        Else If InStr(TrackListing[A_Index][3],"AVC")
-          ExtractTracks .= BuildTrack(Index,"avc")
-        Else If InStr(TrackListing[A_Index][3],"MPEG-4")
-          ExtractTracks .= BuildTrack(Index,"mp4")
-        Else If InStr(TrackListing[A_Index][3],"MPEG")
-          ExtractTracks .= BuildTrack(Index,"mpeg")
-        Else If InStr(TrackListing[A_Index][3],"Theora")
-          ExtractTracks .= BuildTrack(Index,"ogv")
-        Else If InStr(TrackListing[A_Index][3],"DIV")
-          ExtractTracks .= BuildTrack(Index,"divx")
-        Else If InStr(TrackListing[A_Index][3],"VP8")
-          ExtractTracks .= BuildTrack(Index,"vp8")
-        Else If InStr(TrackListing[A_Index][3],"VP9")
-          ExtractTracks .= BuildTrack(Index,"vp9")
+        : InStr(TrackListing[A_Index][3],"HEVC") ? BuildTrack(Index,"hevc")
+        : InStr(TrackListing[A_Index][3],"AVC") ? BuildTrack(Index,"avc")
+        : InStr(TrackListing[A_Index][3],"MPEG-4") ? BuildTrack(Index,"mp4")
+        : InStr(TrackListing[A_Index][3],"MPEG") ? BuildTrack(Index,"mpeg")
+        : InStr(TrackListing[A_Index][3],"Theora") ? BuildTrack(Index,"ogv")
+        : InStr(TrackListing[A_Index][3],"DIV") ? BuildTrack(Index,"divx")
+        : InStr(TrackListing[A_Index][3],"VP8") ? BuildTrack(Index,"vp8")
+        : InStr(TrackListing[A_Index][3],"VP9") ? BuildTrack(Index,"vp9")
         ;the rest
-        Else
-          ExtractTracks .= BuildTrack(Index,TrackListing[A_Index][2])
+        : BuildTrack(Index,TrackListing[A_Index][2]))
         }
       }
     }
@@ -384,7 +373,7 @@ ExtractFiles()
 
 BuildTrack(INDEX,EXT)
   {
-  If !OverWriteFiles && FileExist(OutputDir "\" OutputName ".Track" INDEX "." EXT)
+  If (!OverWriteFiles && FileExist(OutputDir "\" OutputName ".Track" INDEX "." EXT))
     Return A_Space INDEX ":""" OutputDir "\" OutputName """.Track" INDEX "-" A_TickCount "." EXT
   Return A_Space INDEX ":""" OutputDir "\" OutputName """.Track" INDEX "." EXT
   }
@@ -403,9 +392,8 @@ BuildTrackMKA(NAME,INDEX,SKIPFILE,INCLUDEFILE)
 MakeTrackListing(FILENAME)
   {
   SplitPath FILENAME,TitleName
-  Gui Show,,%sProg_Name%: %TitleName%
-
-  JSONFile := StdOutToVar(sProg_Dir Merge_Exe " -J " """" FILENAME """")
+  Gui Show,,%sProgName%: %TitleName%
+  JSONFile := StdOutToVar(sProgDir Merge_Exe " -J " """" FILENAME """")
   ;parse track listing
   TempList := []
   For key,value in Jxon_Load(JSONFile).tracks
@@ -426,10 +414,11 @@ MakeMediaObject(VALUE)
     TempObject .= "| Rate: " VALUE.properties.audio_sampling_frequency
   If VALUE.properties.audio_channels
     TempObject .= "| Channels: " VALUE.properties.audio_channels
-  If VALUE.properties.language && VALUE.properties.language != und
+  If (VALUE.properties.language && VALUE.properties.language != "und")
     TempObject .= "| Lang: " VALUE.properties.language
   If VALUE.properties.track_name
     TempObject .= "| Name: " VALUE.properties.track_name
+
   ;remove starting |
   If InStr(TempObject,"|")
     {
@@ -441,7 +430,7 @@ MakeMediaObject(VALUE)
 
 ;from ahk manual
 ;GUI Example: Display context-senstive help (via ToolTip)
-WM_MOUSEMOVE()
+fWM_MOUSEMOVE()
   {
   Static CurrControl,PrevControl,_TT
   CurrControl := A_GuiControl
