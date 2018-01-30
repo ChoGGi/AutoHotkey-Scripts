@@ -1,6 +1,6 @@
 ;JXON.ahk,StdOutToVar.ahk
 
-;https://github.com/cocobelgica/AutoHotkey-Util/blob/master/StdOutToVar.ahk
+;https://github.com/cocobelgica/AutoHotkey-Util/blob/master/StdOutToVar.ahk (3541fbe on 25 Aug 2014)
 StdOutToVar(sCmd,sBreakOnString := 0,sBreakOnStringAdd := 0,iBreakDelay := 0)
   {
   Static sPtr := (A_PtrSize ? "Ptr" : "UInt")
@@ -75,7 +75,7 @@ StdOutToVar(sCmd,sBreakOnString := 0,sBreakOnStringAdd := 0,iBreakDelay := 0)
 	Return sOutput
   }
 
-;https://github.com/cocobelgica/AutoHotkey-JSON
+;https://github.com/cocobelgica/AutoHotkey-JSON/blob/master/Jxon.ahk (1560aaa on 6 Apr 2016)
 Jxon_Load(ByRef src, args*)
 {
 	static q := Chr(34)
