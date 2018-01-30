@@ -9,8 +9,7 @@ Settings file created on first run
 
 Requires:
 https://github.com/ChoGGi/AutoHotkey-Scripts/blob/master/Lib/StdOutToVar.ahk
-https://github.com/ChoGGi/AutoHotkey-Scripts/blob/master/Lib/JXON.ahk
-https://github.com/ChoGGi/AutoHotkey-Scripts/blob/master/Lib/SetPath.ahk
+https://github.com/ChoGGi/AutoHotkey-Scripts/blob/master/Lib/Functions_mkvextractAGU.ahk
 Links to originals:
 https://github.com/cocobelgica/AutoHotkey-JSON/blob/master/Jxon.ahk (1560aaa on 6 Apr 2016)
 https://github.com/cocobelgica/AutoHotkey-Util/blob/master/StdOutToVar.ahk (3541fbe on 25 Aug 2014)
@@ -30,10 +29,8 @@ ListLines Off
 AutoTrim Off
 SetWinDelay -1
 
-;Jxon_Load()
-#Include <JXON>
-;StdOutToVar()
-#Include <StdOutToVar>
+;Jxon_Load(),StdOutToVar()
+#Include <Functions_mkvextractAGU>
 
 Global sProgIni,sProgDir,sProgExe,sProgName,TitleName
       ,ExtractTracks,OverWriteFiles,OutputDir,OutExt,OutputName,BatchFile
