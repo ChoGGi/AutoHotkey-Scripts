@@ -78,7 +78,7 @@ StdOutToVar(sCmd,sBreakOnString := 0,sBreakOnStringAdd := 0,iBreakDelay := 0)
 ;https://github.com/cocobelgica/AutoHotkey-JSON/blob/master/Jxon.ahk (1560aaa on 6 Apr 2016)
 Jxon_Load(ByRef src, args*)
 {
-	static q := Chr(34)
+	Static q := Chr(34)
 
 	key := "", is_key := false
 	stack := [ tree := [] ]

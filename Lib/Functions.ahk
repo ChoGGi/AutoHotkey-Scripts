@@ -302,7 +302,7 @@ fSeDebugPrivilege()
   h := fOpenProcess(0x400,iScriptPID)
 
   ; Open an adjustable access token with this process (TOKEN_ADJUST_PRIVILEGES = 32)
-  DllCall(advapi32.OpenProcessToken,sPtr,h,"UInt",32,"PtrP",t)
+  DllCall(advapi32.OpenProcessToken,sPtr,h,"UInt",32,sPtrP,t)
   VarSetCapacity(ti,16,0)  ; structure of privileges
   NumPut(1,ti,0,"UInt")  ; one entry in the privileges array...
   ; Retrieves the locally unique identifier of the debug privilege:

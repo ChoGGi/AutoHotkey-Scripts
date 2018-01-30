@@ -26,7 +26,7 @@ https://mkvtoolnix.download
 
 mkvextractAGUI Example.mkv
 ```
-### OnScreenAltTab.ahk
+### AltTab.ahk
 ```
 Alt-Tab replacement with preview
 ```

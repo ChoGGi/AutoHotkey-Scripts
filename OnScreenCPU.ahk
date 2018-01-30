@@ -109,7 +109,10 @@ Return
 
 lUpdateGraph:
   Loop % iCores
-    XGraph_Plot(pGraph%A_Index%,100 - Round(iCPULoad[A_Index]),Round(iCPULoad[A_Index]))
+    {
+    iTmpAmt := Round(iCPULoad[A_Index])
+    XGraph_Plot(pGraph%A_Index%,100 - iTmpAmt,iTmpAmt)
+    }
   XGraph_Plot(pGraphMem,100 - iMemLoad,iMemLoad)
 Return
 
