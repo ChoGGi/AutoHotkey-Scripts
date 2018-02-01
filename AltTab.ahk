@@ -50,7 +50,7 @@ If !FileExist(sProgIni)
   FileAppend %sText%,%sProgIni%
   Run %sProgIni%
   }
-Global Display_List_Shown,Alt_Esc,Alt_Hotkey,Tab_Hotkey,Shift_Tab_Hotkey,Esc_Hotkey
+Global bDisplay_List_Shown,Alt_Esc,Alt_Hotkey,Tab_Hotkey,Shift_Tab_Hotkey,Esc_Hotkey
 ; Hotkeys
 IniRead Alt_Hotkey,%sProgIni%,Hotkeys,Alt_Hotkey,!
 IniRead Tab_Hotkey,%sProgIni%,Hotkeys,Tab_Hotkey,Tab
@@ -76,7 +76,7 @@ Col_2 := 0 ; hidden column for row number
 ; col 3 is autosized based on other column sizes
 Col_4 := "AutoHdr" ; State
 Col_5 := "Auto" ; Status - e.g. Hung
-Col_6 := 0 ; Win ID (hidden)
+Col_6 := 0 ; HWND (hidden)
 ; Max height
 Height_Max := A_ScreenHeight * Height_Max_Modifier ; limit height of listview
 ; Colours in RGB hex
@@ -104,7 +104,7 @@ WM_GETICON := 0x7F
 ICON_BIG := 1
 iWinTimeout := 150
 
-Display_List_Shown := 0
+bDisplay_List_Shown := 0
 Col_Title_List := "#| |Window|View|Status|WinID"
 Col_Title := StrSplit(Col_Title_List,"|")
 
@@ -121,8 +121,9 @@ lEmptyMem:
   fEmptyMem(iScriptPID)
 Return
 
-Display_List:
-  If Display_List_Shown = 1 ; empty listview and image list if only updating - e.g. when closing a window (mbutton)
+lDisplay_List:
+  ;If bDisplay_List_Shown = 1 ; empty listview and image list if only updating - e.g. when closing a window (mbutton)
+  If bDisplay_List_Shown ; empty listview and image list if only updating - e.g. when closing a window (mbutton)
     LV_Delete()
   Else ; not shown - need to create gui for updating listview
     {
@@ -144,19 +145,19 @@ Display_List:
     Gui 1:Default
     }
 
-  ;build list of thumbnails to be removed after gui destroy
+  ;list of thumbnails to be removed after gui destroy
   oThumbnails := {}
 
   ImageListID1 := IL_Create(10,5,1) ; Create an ImageList so that the ListView can display some icons
   LV_SetImageList(ImageListID1,1) ; Attach the ImageLists to the ListView so that it can later display the icons
 
   ;List windows and icons:
-  WinGet Window_List,List ; Gather a list of running programs
+  WinGet aWindow_List,List ; Gather a list of running programs
   Window_Found_Count := 0
   GuiControl -Redraw,%hListView1%
-  Loop % Window_List
+  Loop % aWindow_List
     {
-    wid := Window_List%A_Index%
+    wid := aWindow_List%A_Index%
     WinGetTitle sWinTitle,ahk_id %wid%
     WinGet sWinStyle,Style,ahk_id %wid%
 
@@ -243,19 +244,21 @@ Display_List:
     }
 
   GoSub Gui_Resize_and_Position
-  If Display_List_Shown = 1 ; resize gui for updating listview
+  ;If bDisplay_List_Shown = 1 ; resize gui for updating listview
+  If bDisplay_List_Shown ; resize gui for updating listview
     {
     Gui 1:Show,AutoSize x%Gui_x% y%Gui_y%,Alt-Tab
     If Selected_Row > %Window_Found_Count% ; less windows now - select last one instead of default 1st row
       Selected_Row := Window_Found_Count
     LV_Modify(Selected_Row,"Focus Select Vis") ; select 1st entry since nothing selected
     }
-  Display_List_Shown := 1 ; Gui 1 is shown back in Alt_Tab_Common_Function() for initial creation
+  bDisplay_List_Shown := 1 ; Gui 1 is shown back in Alt_Tab_Common_Function() for initial creation
 Return
 
 Gui_Resize_and_Position:
   DetectHiddenWindows On ; retrieving column widths to enable calculation of col 3 width
-  If Display_List_Shown = 0 ; resize listview columns - no need to resize columns for updating listview
+  ;If bDisplay_List_Shown = 0 ; resize listview columns - no need to resize columns for updating listview
+  If !bDisplay_List_Shown ; resize listview columns - no need to resize columns for updating listview
     {
     LV_ModifyCol(1,Col_1) ; icon column
     LV_ModifyCol(2,Col_2) ; hidden column for row number
@@ -265,7 +268,7 @@ Gui_Resize_and_Position:
       LV_ModifyCol(5,Col_5) ; Status
     Else
       LV_ModifyCol(5,0) ; Status
-    LV_ModifyCol(6,Col_6) ; PID (hidden)
+    LV_ModifyCol(6,Col_6) ; HWND (hidden)
     Loop 7
       {
         SendMessage 0x1000+29,A_Index -1,0,,ahk_id %hListView1% ; LVM_GETCOLUMNWIDTH (0x1000+29)
@@ -298,12 +301,13 @@ ListView_Event:
   If A_GuiEvent = Normal ; activate lv item
     Alt_Tab_Common_Function(0)
   If A_GuiEvent = DoubleClick ; activate clicked window
-    GoSub ListView_Destroy
+    GoSub lListView_Destroy
   If A_GuiEvent = K ; letter was pressed, select next window name starting with that letter
     GoSub Key_Pressed_1st_Letter
 
   LV_GetText(sState,Selected_Row,4)
-  If sState != Min
+  LV_GetText(sHung,Selected_Row,5)
+  If (sHung || sState != "Min")
     {
     Gui Thumb:Show,NoActivate
     ;Update Preview
@@ -329,7 +333,7 @@ ListView_Event:
     Gui Thumb:Hide,NoActivate
 Return
 
-~Alt Up::GoSub ListView_Destroy
+~Alt Up::GoSub lListView_Destroy
 
 Initiate_Hotkeys:
   Use_AND_Symbol := "" ; initiate
@@ -360,16 +364,24 @@ Return
 Alt_Tab_Common_Function(Key := "Alt_Tab") ; Key = "Alt_Tab" or "Alt_Shift_Tab"
   {
   Global
-  If Display_List_Shown = 0
+  ;If bDisplay_List_Shown = 0
+  If !bDisplay_List_Shown
     {
     WinGet Active_ID,ID,A
-    GoSub Display_List
+    GoSub lDisplay_List
 
     ;Alt_Tab_Common__Highlight_Active_Window
     Active_ID_Found := 0 ; init
     Loop % Window_Found_Count ; select active program in list (not always the top item)
       {
       LV_GetText(RowText,A_Index,2)  ; Get hidden column numbers
+      ;user did a quick alt-tab with a hung window (no RowText so just abort)
+      If RowText = %A_Space%
+        {
+        GoSub lListView_Destroy
+        Return
+        }
+
       If Window%RowText% = %Active_ID%
         {
         Active_ID_Found := A_Index
@@ -408,7 +420,7 @@ Alt_Tab_Common_Function(Key := "Alt_Tab") ; Key = "Alt_Tab" or "Alt_Shift_Tab"
 
 Alt_Esc: ; abort switching
   Alt_Esc := 1
-  GoSub ListView_Destroy
+  GoSub lListView_Destroy
 Return
 
 
@@ -417,24 +429,6 @@ Alt_Esc_Check_Alt_State: ; hides alt-tab gui - shows again if alt still pressed
   If (GetKeyState(Alt_Hotkey2,"P") || GetKeyState(Alt_Hotkey2)) ; Alt key still pressed - show alt-tab again
     GoSub Alt_Tab
 Return
-
-Hotkeys_Toggle_Temp_Hotkeys(state) ; (state = "On" or "Off")
-  {
-  Global
-  ; UseErrorLevel in case of exiting script before hotkey created
-  Hotkey %Alt_Hotkey%%Use_AND_Symbol%%Esc_Hotkey%,Alt_Esc,%state% UseErrorLevel ; abort
-  Hotkey %Alt_Hotkey%%Use_AND_Symbol%WheelUp,Alt_Shift_Tab,%state% UseErrorLevel ; previous window
-  Hotkey %Alt_Hotkey%%Use_AND_Symbol%WheelDown,Alt_Tab,%state% UseErrorLevel ; next window
-  }
-
-Get__Selected_Row_and_RowText()
-  {
-  Global
-  ;If ListView1__Disabled = 1 ; don't update - for statusbar (timer)
-  ;  Return
-  Selected_Row := LV_GetNext(0,"F")
-  LV_GetText(RowText,Selected_Row,2)  ; Get the row's 2nd column's text for real order number (hidden column).
-  }
 
 Key_Pressed_1st_Letter:
   Key_Pressed_ASCII := A_EventInfo
@@ -459,14 +453,14 @@ Key_Pressed_1st_Letter:
 
     ; Check for parent's title for typing first letter
     ;If Window_Parent%List_Title_Text% !=
-    If Window_Parent%List_Title_Text%
-      WinGetTitle List_Title_Text,% "ahk_id " Window_Parent%List_Title_Text%
-    Else
+    ;If Window_Parent%List_Title_Text%
+    ;  WinGetTitle List_Title_Text,% "ahk_id " Window_Parent%List_Title_Text%
+    ;Else
       WinGetTitle List_Title_Text,% "ahk_id " Window%List_Title_Text%
     ;StringUpper, List_Title_Text, List_Title_Text ; need to match against upper case when alt is held down
     List_Title_Text := Format("{:U}",List_Title_Text)
-
-    List_Title_Text := Asc(List_Title_Text) ; convert to ASCII key code
+    ; convert to ASCII key code
+    List_Title_Text := Asc(List_Title_Text)
 
     If Key_Pressed_ASCII = %List_Title_Text%
       {
@@ -476,28 +470,34 @@ Key_Pressed_1st_Letter:
     }
 Return
 
-ListView_Destroy:
+lListView_Destroy:
   Hotkeys_Toggle_Temp_Hotkeys("Off") ; (state = "On" or "Off")
   Gui 1: Default
   If Alt_Esc != 1 ; i.e. not called from Alt_Esc
     Get__Selected_Row_and_RowText()
-  Display_List_Shown := 0
-  If Status%RowText% = Hung ; do not activate a Hung window (O/S unstable)
-    Alt_Esc := 1
-  If Alt_Esc != 1 ; i.e. not called from Alt_Esc
+  bDisplay_List_Shown := 0
+  If RowText != %A_Space%
     {
-    wid := Window%RowText%
-    ;hw_popup := hw_popup%RowText%
-    WinGet wid_MinMax,MinMax,ahk_id %wid%
-    If wid_MinMax = -1 ;minimised
-      WinRestore ahk_id %wid%
-    ;If hw_popup
-    ;  WinActivate ahk_id %hw_popup%
-    ;Else
-      WinActivate ahk_id %wid%
+    If Status%RowText% = Hung  ; do not activate a Hung window (O/S unstable)
+      Alt_Esc := 1
+    If Alt_Esc != 1 ; i.e. not called from Alt_Esc
+      {
+      wid := Window%RowText%
+      ;hw_popup := hw_popup%RowText%
+      WinGet wid_MinMax,MinMax,ahk_id %wid%
+      If wid_MinMax = -1 ;minimised
+        WinRestore ahk_id %wid%
+      ;If hw_popup
+      ;  WinActivate ahk_id %hw_popup%
+      ;Else
+        WinActivate ahk_id %wid%
+      }
+    Else If Alt_Esc = 1 ; WM_ACTIVATE - clicked outside alt-tab gui 1
+      WinActivate ahk_id %Active_ID%
     }
-  Else If Alt_Esc = 1 ; WM_ACTIVATE - clicked outside alt-tab gui 1
+  Else If Alt_Esc = 1
     WinActivate ahk_id %Active_ID%
+
   Gui 1: Destroy ; destroy after switching to avoid re-activation of some windows
   Gui Thumb: Destroy
   Status_Found := "" ; reset
@@ -509,6 +509,24 @@ ListView_Destroy:
   ;less mem usage
   fEmptyMem(iScriptPID)
 Return
+
+Hotkeys_Toggle_Temp_Hotkeys(state) ; (state = "On" or "Off")
+  {
+  Global
+  ; UseErrorLevel in case of exiting script before hotkey created
+  Hotkey %Alt_Hotkey%%Use_AND_Symbol%%Esc_Hotkey%,Alt_Esc,%state% UseErrorLevel ; abort
+  Hotkey %Alt_Hotkey%%Use_AND_Symbol%WheelUp,Alt_Shift_Tab,%state% UseErrorLevel ; previous window
+  Hotkey %Alt_Hotkey%%Use_AND_Symbol%WheelDown,Alt_Tab,%state% UseErrorLevel ; next window
+  }
+
+Get__Selected_Row_and_RowText()
+  {
+  Global
+  ;If ListView1__Disabled = 1 ; don't update - for statusbar (timer)
+  ;  Return
+  Selected_Row := LV_GetNext(0,"F")
+  LV_GetText(RowText,Selected_Row,2)  ; Get the row's 2nd column's text for real order number (hidden column).
+  }
 
 Replace_Modifier_Symbol(Variable_Name,New_Variable_Name)
   {
@@ -525,7 +543,8 @@ Replace_Modifier_Symbol(Variable_Name,New_Variable_Name)
 
 fWM_ACTIVATE(wParam)
   {
-  If (wParam = 0 && A_Gui = 1 && Display_List_Shown = 1) ; i.e. don't trigger when submitting gui
+  ;If (wParam = 0 && A_Gui = 1 && bDisplay_List_Shown = 1) ; i.e. don't trigger when submitting gui
+  If (wParam = 0 && A_Gui = 1 && bDisplay_List_Shown) ; i.e. don't trigger when submitting gui
     {
     Alt_Esc := 1
     GoSub Alt_Esc ; hides alt-tab gui
