@@ -5,6 +5,9 @@ Useful for people with NV Surround or Eyefinity (or ultrawide monitors);
 who want to have programs display at centre (relative to how they first appear).
 The defaults are for three monitors at 5760 (3*1920)
 
+Requires:
+https://github.com/ChoGGi/AutoHotkey-Scripts/blob/master/Lib/Functions.ahk
+
 Settings created on first run
 
 v0.03
@@ -23,21 +26,22 @@ ListLines Off
 AutoTrim Off
 Process Priority,,L
 SetWinDelay -1
+
 OnExit lUnloadHook
 
 Global bLoopTitles,iPushAmount,iVisibleZone,iPrimaryWidth,iCloseAmount
       ,iWaitTime,iDelay,oIgnoreList,sIgnoreListTitles,iChoGGi
 
-sLoadDlls := "psapi,ntdll"
+sDlls := "psapi,ntdll"
 ;fEmptyMem(),fWaitForHungWindow(),fShellHook(),fSetIOPriority()
 #Include <Functions>
 
 ;pid of script
 Global iScriptPID := DllCall("GetCurrentProcessId")
 ;get script filename
-SplitPath A_ScriptName,,,,sName
+SplitPath A_ScriptName,,,,sProgName
 ;get settings filename
-sProgIni := A_ScriptDir "\" sName ".ini"
+sProgIni := A_ScriptDir "\" sProgName ".ini"
 
 ;missing settings
 If !FileExist(sProgIni)
@@ -102,7 +106,6 @@ fEmptyMem(iScriptPID)
 Return
 
 lUnloadHook:
-  ;IniWrite 0,%sProgIni%,Settings,Running
   fShellHook()
 ExitApp
 
@@ -151,16 +154,7 @@ fShellMessage(iWinParam,iLParam)
   ;loop through sIgnoreListTitles for TitleMatchMode 2
   If (sIgnoreListTitles && InStr(sIgnoreListTitles,sWinTitle,1))
     Return
-  /*
-    {
-    Loop Parse,sIgnoreListTitles,`,
-      {
-      case sensitive
-      If InStr(sWinTitle,A_LoopField,1)
-        Return
-      }
-    }
-  */
+
   ;move the window (dependant on how close it is to the centre monitor)
   iWinXPos := (iWinXPos > iCloseAmount ? iWinXPos + iPushAmount - iCloseAmount
             : iWinXPos + iPushAmount)
@@ -173,9 +167,6 @@ fShellMessage(iWinParam,iLParam)
     WinWaitActive ahk_id %iLParam%,,5
     ControlClick Button3
     }
-
-  ;free some mem
-  fEmptyMem(iScriptPID)
   }
 
 lListVars:

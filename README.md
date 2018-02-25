@@ -38,11 +38,15 @@ Add some clocks
 ```
 Shows CPU cores usage and memory usage (far right)
 ```
+### ShutDownMenu.ahk
+```
+Shows a list of shutdown/reboot/logoff options
+```
 
 
 ##### Default settings are created on first run
 ```
-Lib\Functions.ahk is required for all scripts
+Lib\Functions.ahk is required for most scripts
 check the scripts for other required libs (see Requires: near the top)
 place libs in AutoHotkey Lib folder or copy and paste lib into script and remove #Include line
 ```

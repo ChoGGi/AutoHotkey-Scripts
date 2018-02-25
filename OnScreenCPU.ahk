@@ -5,15 +5,15 @@ Settings file created on first run
 
 Requires:
 https://github.com/ChoGGi/AutoHotkey-Scripts/blob/master/Lib/Functions.ahk
-
 https://github.com/ChoGGi/AutoHotkey-Scripts/blob/master/Lib/XGraph.ahk
-https://autohotkey.com/boards/viewtopic.php?t=3492
-
-v0.01
-Initial Release
 
 Uses NtQuerySystemInformation function from:
 https://github.com/jNizM/AHK_Scripts/blob/master/src/performance_counter/NtQuery_CPU_Usage.ahk
+
+v0.02
+Removed Samplerate option
+v0.01
+Initial Release
 */
 #NoEnv
 #KeyHistory 0
@@ -26,8 +26,8 @@ Process Priority,,L
 SetWinDelay -1
 OnExit GuiClose
 
-;fEmptyMem(),fSetIOPriority(),fGetUsageCPUCores(),fMemoryLoad()
-sLoadDlls := "ntdll,psapi"
+;fEmptyMem(),fSetIOPriority(),fSetPagePriority(),fGetUsageCPUCores(),fMemoryLoad()
+sDlls := "ntdll,psapi"
 #Include <Functions>
 
 Global iCores := fGetUsageCPUCores().MaxIndex()
@@ -37,25 +37,23 @@ Global iCores := fGetUsageCPUCores().MaxIndex()
 ;pid of script
 iScriptPID := DllCall("GetCurrentProcessId")
 ;get script filename
-SplitPath A_ScriptName,,,,sName
+SplitPath A_ScriptName,,,,sProgName
 ;get settings filename
-sProgIni := A_ScriptDir "\" sName ".ini"
+sProgIni := A_ScriptDir "\" sProgName ".ini"
 
 ;defaults
 iDisplayRate := 2000
-iSampleRate := 500
 sWinPos := "0:0"
 iColumnWidth := 27
 ;missing settings
 If !FileExist(sProgIni)
   {
-  sText := "[Settings]`r`nDisplayRate=" iDisplayRate "`r`nSampleRate=" iSampleRate "`r`nColumnWidth=" iColumnWidth "`r`nWinPos=" sWinPos "`r`n"
+  sText := "[Settings]`r`nDisplayRate=" iDisplayRate "`r`nColumnWidth=" iColumnWidth "`r`nWinPos=" sWinPos "`r`n"
   FileAppend %sText%,%sProgIni%
   Run %sProgIni%
   }
 ;read stored
 IniRead iDisplayRate,%sProgIni%,Settings,DisplayRate,%iDisplayRate%
-IniRead iSampleRate,%sProgIni%,Settings,SampleRate,%iSampleRate%
 IniRead iColumnWidth,%sProgIni%,Settings,ColumnWidth,%iColumnWidth%
 IniRead sWinPos,%sProgIni%,Settings,WinPos,%sWinPos%
 sArray := StrSplit(sWinPos,":")
@@ -63,9 +61,9 @@ iXPos := sArray[1]
 iYPos := sArray[2]
 ;keep GUI on screen
 If iYPos > %A_ScreenHeight%
-  iYPos := A_ScreenHeight // 3
+  iYPos := 0
 If iXPos > %A_ScreenWidth%
-  iXPos := A_ScreenWidth // 3
+  iXPos := 0
 
 ;build gui
 BGCustomColor := "000000"
@@ -93,25 +91,20 @@ fSetPagePriority(iScriptPID)
 
 fEmptyMem(iScriptPID)
 
-SetTimer lUpdateData,%iSampleRate%
+GoSub lUpdateGraph
 SetTimer lUpdateGraph,%iDisplayRate%
 SetTimer lEmptyMem,300000
-GoSub lUpdateData
-GoSub lUpdateGraph
 
 ;end of init section
 Return
 
-lUpdateData:
+lUpdateGraph:
   iCPULoad := fGetUsageCPUCores()
   iMemLoad := fMemoryLoad()
-Return
-
-lUpdateGraph:
   Loop % iCores
     {
-    iTmpAmt := Round(iCPULoad[A_Index])
-    XGraph_Plot(pGraph%A_Index%,100 - iTmpAmt,iTmpAmt)
+    iTmpAmount := Round(iCPULoad[A_Index])
+    XGraph_Plot(pGraph%A_Index%,100 - iTmpAmount,iTmpAmount)
     }
   XGraph_Plot(pGraphMem,100 - iMemLoad,iMemLoad)
 Return

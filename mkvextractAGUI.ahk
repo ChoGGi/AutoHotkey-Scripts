@@ -18,8 +18,8 @@ Initial Release
 */
 #NoEnv
 #KeyHistory 0
-;#SingleInstance Force
-#SingleInstance Off
+#SingleInstance Force
+;#SingleInstance Off
 #NoTrayIcon
 SetBatchLines -1
 ListLines Off
@@ -55,9 +55,9 @@ iXPos := sArray[1]
 iYPos := sArray[2]
 ;keep GUI on screen
 If iYPos > %A_ScreenHeight%
-  iYPos := A_ScreenHeight // 3
+  iYPos := 0
 If iXPos > %A_ScreenWidth%
-  iXPos := A_ScreenWidth // 3
+  iXPos := 0
 IniRead GuiHeight,%sProgIni%,Settings,Height,400
 IniRead GuiWidth,%sProgIni%,Settings,Width,680
 
@@ -86,7 +86,7 @@ GuiControl Move,InfoText,W300
 
 Gui Add,Button,y0 x0 gButtonExtract vButtonExtract Default,&Extract
 Gui Add,Button,y0 x0 gGuiClose vCancelBut,Cancel
-Gui Add,Button,y0 x0 gToggleSelect vToggleSelect,&Toggle Select
+Gui Add,Button,y0 x0 gToggleSelect vToggleSelect,&Toggle Selection
 Gui Add,Button,y0 x0 gButtonBatchFile vBatchFile,&Batch File
 Gui Add,Text,y0 x0 vBatchFileDrop,Batch "Drop Zone"
 Gui Add,CheckBox,y0 x0 vExtractToMKA,MKA
@@ -94,13 +94,13 @@ Gui Add,CheckBox,y0 x0 vOverWriteFiles,Overwrite?
 Gui Add,CheckBox,y0 x0 vExitAfter,Exit after
 ;tooltips
 SplitPath sInFile,,OutputDir,OutExt,OutputName
-ButtonExtract_TT := "Extract file(s) to " OutputDir
-CancelBut_TT := "Exit without doing anything."
-ToggleSelect_TT := "Toggle checkmarks."
-BatchFile_TT := "Create a batch file with currently selected options and " OutputDir "\*.mkv`n`nYou can also select tracks then drag and drop files on this button or the ""Drop Zone"" if you don't want the whole folder included"
-ExtractToMKA_TT := "Extract file(s) to " OutputDir "\" OutputName ".mka (to preserve metadata)"
-OverWriteFiles_TT := "Overwrite existing file(s) or automagically rename if existing`n`nBy default files will be extracted to " OutputDir "\" OutputName ".Track*Number*." OutExt """"
-ExitAfter_TT := "Exit after starting extraction process"
+ButtonExtract_TT := "Extract track(s) to " OutputDir
+CancelBut_TT := "Exit " sProgName " without doing anything"
+ToggleSelect_TT := "Toggle checkmarks"
+BatchFile_TT := "Create a batch file with currently selected options and any mkv files in:`n" OutputDir "`n`nYou can also drop selected files on this button`nor the ""Drop Zone"" if you don't want the whole folder included"
+ExtractToMKA_TT := "Extract track(s) to:`n" OutputDir "\`n" OutputName ".mka (preserves metadata)"
+OverWriteFiles_TT := "Overwrite existing file(s) or automagically rename if existing`n`nBy default files will be extracted to:`n" OutputDir "\`n" OutputName ".Track#." OutExt """"
+ExitAfter_TT := "Exit " sProgName " after starting extraction process"
 
 GuiControl,,ExtractToMKA,%ExtractToMKA%
 GuiControl,,OverWriteFiles,%OverWriteFiles%
@@ -162,12 +162,9 @@ Return
 
 GuiClose:
 GuiEscape:
-  iScriptPID := DllCall("GetCurrentProcessId")
-  WinGetPos iXPosT,iYPosT,GuiWidth,GuiHeight,ahk_pid %iScriptPID%
-  If iXPosT
-    iXPos := iXPosT
-  If iYPosT
-    iYPos := iYPosT
+  ;iScriptPID := DllCall("GetCurrentProcessId")
+  ;WinGetPos iXPos,iYPos,GuiWidth,GuiHeight,ahk_pid %iScriptPID%
+  WinGetPos iXPos,iYPos
   GuiControlGet ExtractToMKA
   GuiControlGet OverWriteFiles
   GuiControlGet ExitAfter
@@ -176,9 +173,8 @@ GuiEscape:
   IniWrite %OverWriteFiles%,%sProgIni%,Settings,OverWriteFiles
   IniWrite %ExitAfter%,%sProgIni%,Settings,ExitAfter
   sWinPos := iXPos ":" iYPos
-  IniWrite %sWinPos%,%sProgIni%,Settings,WinPos
-  ;IniWrite %GuiWidth%,%sProgIni%,Settings,Width
-  ;IniWrite %GuiHeight%,%sProgIni%,Settings,Height
+  If sWinPos != :
+    IniWrite %sWinPos%,%sProgIni%,Settings,WinPos
 ExitApp
 
 ToggleSelectList:
@@ -422,32 +418,6 @@ MakeMediaObject(VALUE)
   Return TempObject
   }
 
-;from ahk manual
-;GUI Example: Display context-senstive help (via ToolTip)
-fWM_MOUSEMOVE()
-  {
-  Static CurrControl,PrevControl,_TT
-  CurrControl := A_GuiControl
-  If (CurrControl != PrevControl && !InStr(CurrControl, " "))
-    {
-    ToolTip
-    SetTimer DisplayToolTip,1000
-    PrevControl := CurrControl
-    }
-  Return
-
-  DisplayToolTip:
-    SetTimer DisplayToolTip,Off
-    ToolTip % %CurrControl%_TT
-    SetTimer RemoveToolTip,50000
-  Return
-
-  RemoveToolTip:
-    SetTimer RemoveToolTip,Off
-    ToolTip
-  Return
-  }
-
 ;By Leef_me
 ;https://autohotkey.com/board/topic/80262-check-which-checkboxes-are-unchecked/
 ToggleListView(RowNum)
@@ -458,4 +428,33 @@ ToggleListView(RowNum)
     LV_Modify(RowNum,"+Check")
   Else
     LV_Modify(RowNum,"-Check")
+  }
+
+fWM_MOUSEMOVE()
+  {
+  Static sPrevControl,_TT
+
+  ;remove tooltip if mouse not over gui
+  If !A_Gui
+    {
+    Tooltip
+    Return
+    }
+
+  ;same control or blank control
+  If (A_GuiControl = sPrevControl || A_GuiControl = A_Space)
+    Return
+
+  SetTimer DisplayToolTip,-500
+  sPrevControl := A_GuiControl
+  Return
+
+  DisplayToolTip:
+    ToolTip % %sPrevControl%_TT
+    SetTimer RemoveToolTip,-10000
+  Return
+
+  RemoveToolTip:
+    ToolTip
+  Return
   }

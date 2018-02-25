@@ -37,15 +37,15 @@ SetWinDelay -1
 OnExit lExitApp
 
 ;fEnumProcesses(),fSeDebugPrivilege(),fSetIOPriority(),fEmptyMem(),fAffinitySet(),fAffinityGet(),fShellHook()
-sLoadDlls := "wtsapi32,advapi32,ntdll,psapi"
+sDlls := "wtsapi32,advapi32,ntdll,psapi"
 #Include <Functions>
 
 ;pid of script
 Global iScriptPID := DllCall("GetCurrentProcessId")
 ;get script filename
-SplitPath A_ScriptName,,,,sName
+SplitPath A_ScriptName,,,,sProgName
 ;get settings filename
-sProgIni := A_ScriptDir "\" sName ".ini"
+sProgIni := A_ScriptDir "\" sProgName ".ini"
 
 ;user wants an affinity mask
 If A_Args[1]
@@ -67,7 +67,7 @@ Else
   oProcList := fEnumProcesses(1)
   For iPID,sProcName in oProcList
     {
-    If (sProcName = sName ".exe" && iPID != iScriptPID)
+    If (sProcName = sProgName ".exe" && iPID != iScriptPID)
       Process Close,% iPID
     }
   }
@@ -79,7 +79,7 @@ Global sDefaultAffinity,oPriorityList,oIOPriorityList,oAffinityListCustom
 ;missing settings
 If !FileExist(sProgIni)
   {
-  sText := "[Settings]`r`n;WARNING: Parent processes will pass settings onto their children (if you make explorer low, anything started by explorer will also be low)`r`n`r`n;Set priority (CPU usage: Prioritise CPU time for processes, be very careful using Realtime)`r`n;L=Low B=BelowNormal N=Normal A=AboveNormal H=High R=Realtime`r`n;PriorityList=ExampleProgram.exe|L,Example2 Program.exe|BelowNormal`r`nPriorityList=`r`n`r`n;Set io priority (Disk usage: Lower is good for background tasks that churn disk; downloaders/music players/so on)`r`n;0=Very low 1=Low 2=Normal (3=High: not working for now)`r`n;IOPriorityList=ExampleProgram.exe|0,Example2 Program.exe|)`r`nIOPriorityList=`r`n`r`n;Set page priority (Memory usage: Lower means more likely removed from working set if needed)`r`n;1=Very low 2=Low 3=Medium 4=Below normal 5=Normal`r`n;PagePriorityList=ExampleProgram.exe|1,Example2 Program.exe|5`r`nPagePriorityList=`r`n`r`n;Set affinity of these processes to *DefaultAffinity* (CPU core usage, Max amount of cores allowed to be used by process)`r`n;AffinityList=ExampleProgram.exe,Example2 Program.exe`r`nAffinityList=`r`n;Default is last four cores (c00=last 2,fc0=last 6)`r`n;" sName ".exe 'Example Program.exe' (show the affinity mask)`r`n;You can set affinity in taskmgr`r`nDefaultAffinity=f00`r`n`r`n;Set custom affinity for certain processes (fff = all cores)`r`n;AffinityListCustom=ExampleProgram.exe|fff,Example2 Program.exe|3f`r`nAffinityListCustom=`r`n`r`n;If these programs aren't running then start them`r`n;RunList=ExampleProgram.exe|C:\Program Files\Example,Example2 Program.exe|C:\Utils`r`nRunList=`r`n`r`n;If these programs are running then kill them`r`n;KillList=ExampleProgram.exe,Example2 Program.exe`r`nKillList=`r`n`r`n;Time to check process list (default is 5 mins)`r`n;Also checks every time new process started`r`nDelay=300000`r`n`r`n;Show system tray icon (only checked on startup)`r`nTrayIcon=True`r`n"
+  sText := "[Settings]`r`n;WARNING: Parent processes will pass settings onto their children (if you make explorer low, anything started by explorer will also be low)`r`n`r`n;Set priority (CPU usage: Prioritise CPU time for processes, be very careful using Realtime)`r`n;L=Low B=BelowNormal N=Normal A=AboveNormal H=High R=Realtime`r`n;PriorityList=ExampleProgram.exe|L,Example2 Program.exe|BelowNormal`r`nPriorityList=`r`n`r`n;Set io priority (Disk usage: Lower is good for background tasks that churn disk; downloaders/music players/so on)`r`n;0=Very low 1=Low 2=Normal (3=High: not working for now)`r`n;IOPriorityList=ExampleProgram.exe|0,Example2 Program.exe|)`r`nIOPriorityList=`r`n`r`n;Set page priority (Memory usage: Lower means more likely removed from working set if needed)`r`n;1=Very low 2=Low 3=Medium 4=Below normal 5=Normal`r`n;PagePriorityList=ExampleProgram.exe|1,Example2 Program.exe|5`r`nPagePriorityList=`r`n`r`n;Set affinity of these processes to *DefaultAffinity* (CPU core usage, Max amount of cores allowed to be used by process)`r`n;AffinityList=ExampleProgram.exe,Example2 Program.exe`r`nAffinityList=`r`n;Default is last four cores (c00=last 2,fc0=last 6)`r`n;" sProgName ".exe 'Example Program.exe' (show the affinity mask)`r`n;You can set affinity in taskmgr`r`nDefaultAffinity=f00`r`n`r`n;Set custom affinity for certain processes (fff = all cores)`r`n;AffinityListCustom=ExampleProgram.exe|fff,Example2 Program.exe|3f`r`nAffinityListCustom=`r`n`r`n;If these programs aren't running then start them`r`n;RunList=ExampleProgram.exe|C:\Program Files\Example,Example2 Program.exe|C:\Utils`r`nRunList=`r`n`r`n;If these programs are running then kill them`r`n;KillList=ExampleProgram.exe,Example2 Program.exe`r`nKillList=`r`n`r`n;Time to check process list (default is 5 mins)`r`n;Also checks every time new process started`r`nDelay=300000`r`n`r`n;Show system tray icon (only checked on startup)`r`nTrayIcon=True`r`n"
   FileAppend %sText%,%sProgIni%
   Run %sProgIni%
   }
@@ -95,7 +95,7 @@ IniRead iChoGGi,%sProgIni%,Settings,ChoGGi,0
 ;show tray menu?
 IniRead sTrayIcon,%sProgIni%,Settings,TrayIcon,True
 ;If sTrayIcon = True || sTrayIcon = %True%
-If sTrayIcon in True,1
+If sTrayIcon In True,1
   {
   ;remove default items
   Menu Tray,NoStandard
@@ -126,14 +126,19 @@ fEmptyMem(iScriptPID)
 fSeDebugPrivilege()
 
 ;monitor new processes (RegisterShellHookWindow doesn't get all processes)
-;https://autohotkey.com/board/topic/56984-new-process-notifier/
+;https://autohotkey.com/board/topic/56984-new-process-notifier/#entry358038
 ;Get WMI service object.
 oWinMgmts := ComObjGet("winmgmts:")
 ;Create sink objects for receiving event noficiations.
 ComObjConnect(createSink := ComObjCreate("WbemScripting.SWbemSink"), "ProcessCreate_")
+;ComObjConnect(deleteSink := ComObjCreate("WbemScripting.SWbemSink"), "ProcessDelete_")
+
+;oWinMgmts.ExecNotificationQueryAsync(deleteSink
+;  , "Select * from __InstanceDeletionEvent"
 ;Register for process creation notifications:
 oWinMgmts.ExecNotificationQueryAsync(createSink
   , "Select * from __InstanceCreationEvent"
+;check every 1 second
   . " within " 1
   . " where TargetInstance ISA 'Win32_Process'")
 
