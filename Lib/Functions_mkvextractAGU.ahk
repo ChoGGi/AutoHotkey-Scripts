@@ -10,6 +10,7 @@ StdOutToVar(sCmd,sBreakOnString := 0,sBreakOnStringAdd := 0,iBreakDelay := 0)
         ,iPtrSize44 := (A_PtrSize == 4 ? 44 : 60)
         ,iPtrSize60 := (A_PtrSize == 4 ? 60 : 88)
         ,iPtrSize64 := (A_PtrSize == 4 ? 64 : 96)
+        ,CREATE_NO_WINDOW := 0x08000000
 	DllCall("CreatePipe", sPtrP, hReadPipe, sPtrP, hWritePipe, sPtr, 0, "UInt", 0)
 	DllCall("SetHandleInformation", sPtr, hWritePipe, "UInt", 1, "UInt", 1)
 
@@ -22,13 +23,13 @@ StdOutToVar(sCmd,sBreakOnString := 0,sBreakOnStringAdd := 0,iBreakDelay := 0)
 
 	if !DllCall(
 	(Join Q C
-		"CreateProcess",             ; http://goo.gl/9y0gw
+		"CreateProcess",            ; http://goo.gl/9y0gw
 		sPtr,  0,                   ; lpApplicationName
-		sPtr,  &sCmd,                ; lpCommandLine
+		sPtr,  &sCmd,               ; lpCommandLine
 		sPtr,  0,                   ; lpProcessAttributes
 		sPtr,  0,                   ; lpThreadAttributes
-		"UInt", true,                ; bInheritHandles
-		"UInt", 0x08000000,          ; dwCreationFlags
+		"UInt", true,               ; bInheritHandles
+		"UInt", CREATE_NO_WINDOW,   ; dwCreationFlags
 		sPtr,  0,                   ; lpEnvironment
 		sPtr,  0,                   ; lpCurrentDirectory
 		sPtr,  &STARTUPINFO,        ; lpStartupInfo
@@ -39,16 +40,16 @@ StdOutToVar(sCmd,sBreakOnString := 0,sBreakOnStringAdd := 0,iBreakDelay := 0)
 		return ""
 	}
 
-	DllCall("CloseHandle", sPtr, hWritePipe)
-	VarSetCapacity(buffer, 4096, 0)
+	DllCall("CloseHandle",sPtr,hWritePipe)
+	VarSetCapacity(buffer,4096,0)
+  ;exit if we get the string we want
   If sBreakOnString
     {
-    ;exit during process execution
     While DllCall("ReadFile", sPtr, hReadPipe, sPtr, &buffer, "UInt", 4096, "UIntP", dwRead, sPtr, 0)
       {
       sOutput .= StrGet(&buffer, dwRead, "CP0")
 
-      If (!sBreakOnStringAdd && If InStr(sOutput,sBreakOnString))
+      If (!sBreakOnStringAdd && InStr(sOutput,sBreakOnString))
         {
         ;got what we want so kill off process
         Process Close,% NumGet(PROCESS_INFORMATION,2 * A_PtrSize,"UInt")
@@ -63,6 +64,7 @@ StdOutToVar(sCmd,sBreakOnString := 0,sBreakOnStringAdd := 0,iBreakDelay := 0)
       Sleep %iBreakDelay%
       }
     }
+  ;don't exit till cmd is done
   Else
     {
     While DllCall("ReadFile", sPtr, hReadPipe, sPtr, &buffer, "UInt", 4096, "UIntP", dwRead, sPtr, 0)

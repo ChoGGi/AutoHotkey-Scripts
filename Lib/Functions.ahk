@@ -2,7 +2,7 @@
 ;fWaitForHungWindow(),fReplaceAtPos(),fCPULoad(),CreateNamedPipe()
 ;fAffinitySet(),fAffinityGet(),fGetPID(),fGlobalMemoryStatusEx()
 ;fEnumProcesses(),fSetIOPriority(),fSeDebugPrivilege(),fGetUsageCPUCores(),fEmptyMem(),fThumbMake(),fThumbRemove(),fConvertBase()
-sLoadDlls := "ntdll,advapi32,psapi,dwmapi,msvcrt"
+sDlls := "ntdll,advapi32,psapi,dwmapi,msvcrt"
 #Include <Functions>
 */
 Global sPtr := (A_PtrSize ? "Ptr" : "UInt")
@@ -12,10 +12,10 @@ Global sPtr := (A_PtrSize ? "Ptr" : "UInt")
       ,Ptr := (A_PtrSize ? Ptr : UInt)
 
 ;load dlls into memory
-If sLoadDlls
+If sDlls
   {
   Global ntdll,advapi32,psapi,dwmapi,msvcrt
-  Loop Parse,sLoadDlls,`,
+  Loop Parse,sDlls,`,
     %A_LoopField% := LoadLibrary(A_LoopField)
   }
 
@@ -36,20 +36,24 @@ FreeLibrary("psapi")
 LoadLibrary(sDllName)
   {
   Static ref := {}
-  If (!(ptr := p := DllCall("LoadLibrary","str",sDllName,sPtr)))
+        ,iPtrSize92 := (A_PtrSize=4) ? 92 : 108
+        ,iPtrSize96 := (A_PtrSize=4) ? 96 : 112
+        ,iPtrSize100 := (A_PtrSize=4) ? 100 : 116
+        ,sIsUni := (A_IsUnicode) ? "W" : "A"
+  If (!(ptr := p := DllCall("LoadLibrary","Str",sDllName,sPtr)))
     Return 0
   ref[ptr,"count"] := (ref[ptr]) ? ref[ptr,"count"]+1 : 1
   p += NumGet(p+0,0x3c,"Int")+24
   o := {_ptr:ptr,__delete:func("FreeLibrary"),_ref:ref[ptr]}
-  If (NumGet(p+0,(A_PtrSize=4) ? 92 : 108,"UInt")<1 || (ts := NumGet(p+0,(A_PtrSize=4) ? 96 : 112,"UInt")+ptr)=ptr || (te := NumGet(p+0,(A_PtrSize=4) ? 100 : 116,"UInt")+ts)=ts)
+  If (NumGet(p+0,iPtrSize92,"Uint")<1 || (ts := NumGet(p+0,iPtrSize96,"Uint")+ptr)=ptr || (te := NumGet(p+0,iPtrSize100,"Uint")+ts)=ts)
     Return o
-  n := ptr+NumGet(ts+0,32,"UInt")
-  Loop % NumGet(ts+0,24,"UInt")
+  n := ptr+NumGet(ts+0,32,"Uint")
+  Loop % NumGet(ts+0,24,"Uint")
     {
-    If (p := NumGet(n+0,(A_Index-1)*4,"UInt"))
+    If (p := NumGet(n+0,(A_Index-1)*4,"Uint"))
       {
-      o[f := StrGet(ptr+p,"cp0")] := DllCall("GetProcAddress",sPtr,ptr,"astr",f,sPtr)
-      If (Substr(f,0)==((A_IsUnicode) ? "W" : "A"))
+      o[f := StrGet(ptr+p,"cp0")] := DllCall("GetProcAddress",sPtr,ptr,"AStr",f,sPtr)
+      If (Substr(f,0)==(sIsUni))
         o[Substr(f,1,-1)] := o[f]
       }
     }
